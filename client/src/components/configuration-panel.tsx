@@ -67,7 +67,7 @@ export function ConfigurationPanel({ config, onConfigChange }: ConfigurationPane
               id="maxChargeRate"
               type="number"
               min="1"
-              max="100"
+              max="1000"
               value={config.maxChargeRate}
               onChange={(e) => updateConfig('maxChargeRate', parseFloat(e.target.value))}
               className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
@@ -91,7 +91,7 @@ export function ConfigurationPanel({ config, onConfigChange }: ConfigurationPane
               id="maxDischargeRate"
               type="number"
               min="1"
-              max="100"
+              max="500"
               value={config.maxDischargeRate}
               onChange={(e) => updateConfig('maxDischargeRate', parseFloat(e.target.value))}
               className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
@@ -195,7 +195,7 @@ export function ConfigurationPanel({ config, onConfigChange }: ConfigurationPane
               id="relayConsumption"
               type="number"
               min="0"
-              max="100"
+              max="1000"
               value={config.relayConsumption}
               onChange={(e) => updateConfig('relayConsumption', parseFloat(e.target.value))}
               className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
