@@ -46,7 +46,8 @@ export function BatterySimulator() {
       current.netPower = current.consumption - current.pvGeneration - current.batteryPower;
       
       // Calculate cost for this interval (15 minutes = 0.25 hours)
-      current.cost = Math.max(0, current.netPower) * current.price * 0.25;
+      const pricePerKWh = current.netPower >= 0 ? current.consumptionPrice : current.injectionPrice;
+      current.cost = current.netPower * pricePerKWh * 0.25;
       
       // Update SoC based on battery power
       const energyChange = current.batteryPower * 0.25; // kWh for 15-min interval
@@ -84,11 +85,11 @@ export function BatterySimulator() {
     }
     
     const visibleData = simulationData.slice(0, currentSlot + 1);
-    const csvData = visibleData.map(d => 
-      `${d.timeString},${d.price.toFixed(3)},${d.consumption.toFixed(1)},${d.pvGeneration.toFixed(1)},${d.pvForecast?.toFixed(1) || '0.0'},${d.batteryPower.toFixed(1)},${d.soc.toFixed(1)},${d.decision || 'hold'},${d.relayState ? 'ON' : 'OFF'},${d.curtailment?.toFixed(1) || '0.0'},${d.netPower.toFixed(1)},${d.cost.toFixed(3)}`
+    const csvData = visibleData.map(d =>
+      `${d.timeString},${d.price.toFixed(3)},${d.injectionPrice.toFixed(3)},${d.consumption.toFixed(1)},${d.pvGeneration.toFixed(1)},${d.pvForecast?.toFixed(1) || '0.0'},${d.batteryPower.toFixed(1)},${d.soc.toFixed(1)},${d.decision || 'hold'},${d.relayState ? 'ON' : 'OFF'},${d.curtailment?.toFixed(1) || '0.0'},${d.netPower.toFixed(1)},${d.cost.toFixed(3)}`
     ).join('\n');
-    
-    const csv = 'Time,Price (€/kWh),Consumption (kW),PV Generation (kW),PV Forecast (kW),Battery Power (kW),SoC (%),Decision,Relay,Curtailment (kW),Net Power (kW),Cost (€)\n' + csvData;
+
+    const csv = 'Time,Price (€/kWh),Injection Price (€/kWh),Consumption (kW),PV Generation (kW),PV Forecast (kW),Battery Power (kW),SoC (%),Decision,Relay,Curtailment (kW),Net Power (kW),Cost (€)\n' + csvData;
     
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -124,7 +125,7 @@ export function BatterySimulator() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="max-w-screen-2xl mx-auto px-6 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
             <ConfigurationPanel
@@ -138,7 +139,7 @@ export function BatterySimulator() {
           </div>
         </div>
 
-        <div className="mt-6">
+        <div className="mt-6 max-w-screen-2xl mx-auto">
           <EditableDataTable
             data={simulationData}
             onDataChange={setSimulationData}

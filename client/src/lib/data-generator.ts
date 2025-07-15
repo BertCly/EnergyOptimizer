@@ -5,21 +5,27 @@ export function generateSimulationData(initialSoc: number): SimulationDataPoint[
   const startTime = new Date();
   startTime.setHours(8, 0, 0, 0); // Start at 8:00 AM
 
+  const priceSchedule: Record<number, { injection: number; consumption: number }> = {
+    14: { injection: -125.34, consumption: -15.86 },
+    15: { injection: -115.34, consumption: -5.86 },
+    16: { injection: -19.68, consumption: 92.38 },
+    17: { injection: 38.31, consumption: 155.1 },
+    18: { injection: 49.07, consumption: 168.31 },
+    19: { injection: 61.94, consumption: 184.04 },
+    20: { injection: 75.28, consumption: 200.34 },
+    21: { injection: 91.87, consumption: 220.61 },
+    22: { injection: 83.15, consumption: 209.97 },
+    23: { injection: 65.43, consumption: 188.31 },
+  };
+
   for (let i = 0; i < 48; i++) {
     const time = new Date(startTime.getTime() + i * 15 * 60 * 1000);
     const hour = time.getHours();
 
-    // Price pattern with peak between 17-21h
-    let price = 0.15; // Base price
-    if (hour >= 17 && hour <= 21) {
-      price = 0.45 + Math.random() * 0.15; // Peak price
-    } else if (hour >= 6 && hour <= 10) {
-      price = 0.25 + Math.random() * 0.05; // Morning medium price
-    } else if (hour >= 22 || hour <= 6) {
-      price = 0.10 + Math.random() * 0.05; // Night low price
-    } else {
-      price = 0.20 + Math.random() * 0.10; // Day normal price
-    }
+    const pricePair = priceSchedule[hour] || { injection: 50, consumption: 150 };
+    const injectionPrice = pricePair.injection / 1000; // €/kWh
+    const consumptionPrice = pricePair.consumption / 1000; // €/kWh
+    const price = consumptionPrice;
 
     // Consumption pattern with afternoon peak
     let consumption = 15; // Base consumption
@@ -50,6 +56,8 @@ export function generateSimulationData(initialSoc: number): SimulationDataPoint[
       time,
       timeString: time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
       price,
+      injectionPrice,
+      consumptionPrice,
       consumption,
       pvGeneration,
       pvForecast,
