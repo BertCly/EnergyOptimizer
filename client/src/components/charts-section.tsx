@@ -17,7 +17,7 @@ export function ChartsSection({ data, currentSlot }: ChartsSectionProps) {
     if (mainChartInstance.current && socChartInstance.current && data.length > 0) {
       const visibleData = data.slice(0, currentSlot + 1);
       const labels = visibleData.map(d => d.timeString);
-      const prices = visibleData.map(d => d.price);
+      const prices = visibleData.map(d => d.consumptionPrice);
       const consumption = visibleData.map(d => d.consumption);
       const pvGeneration = visibleData.map(d => d.pvGeneration);
       const pvForecast = visibleData.map(d => d.pvForecast || 0);

@@ -25,7 +25,6 @@ export function generateSimulationData(initialSoc: number): SimulationDataPoint[
     const pricePair = priceSchedule[hour] || { injection: 50, consumption: 150 };
     const injectionPrice = pricePair.injection / 1000; // €/kWh
     const consumptionPrice = pricePair.consumption / 1000; // €/kWh
-    const price = consumptionPrice;
 
     // Consumption pattern with afternoon peak
     let consumption = 15; // Base consumption
@@ -55,7 +54,6 @@ export function generateSimulationData(initialSoc: number): SimulationDataPoint[
     data.push({
       time,
       timeString: time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-      price,
       injectionPrice,
       consumptionPrice,
       consumption,

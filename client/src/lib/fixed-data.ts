@@ -65,7 +65,6 @@ export function generateFixedSimulationData(initialSoc: number): SimulationDataP
     data.push({
       time,
       timeString: time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-      price: pricePair.consumption, // Use consumption price as main price
       injectionPrice: pricePair.injection,
       consumptionPrice: pricePair.consumption,
       consumption: FIXED_SIMULATION_DATA.consumption[i],

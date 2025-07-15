@@ -51,7 +51,7 @@ export function DataTable({ data, currentSlot, onClearLog, onExportData }: DataT
               {visibleData.map((row, index) => (
                 <tr key={index} className="border-b border-gray-700">
                   <td className="py-2 text-gray-300">{row.timeString}</td>
-                  <td className="py-2 text-amber-400">€{row.price.toFixed(3)}</td>
+                  <td className="py-2 text-amber-400">€{row.consumptionPrice.toFixed(3)}</td>
                   <td className="py-2 text-red-400">{row.consumption.toFixed(1)}</td>
                   <td className="py-2 text-emerald-400">{row.pvGeneration.toFixed(1)}</td>
                   <td className="py-2 text-blue-400">{row.batteryPower.toFixed(1)}</td>

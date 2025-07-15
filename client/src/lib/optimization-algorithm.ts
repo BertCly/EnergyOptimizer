@@ -12,8 +12,8 @@ export function controlCycle(
   const forecast = data.slice(currentSlot, currentSlot + horizon);
 
   // Find cheapest and most expensive slots
-  const cheapestSlots = getCheapestChargeSlots(forecast, current.soc, config);
-  const mostExpensiveSlots = getBestDischargeSlots(forecast, current.soc, config);
+  const cheapestSlots = getCheapestChargeSlots(forecast, current.soc, config, currentSlot);
+  const mostExpensiveSlots = getBestDischargeSlots(forecast, current.soc, config, currentSlot);
   // console.log('Goedkoopste tijdslots:', cheapestSlots);
 
   let decision: ControlDecision = {
@@ -66,13 +66,14 @@ export function controlCycle(
 function getCheapestChargeSlots(
   forecast: SimulationDataPoint[],
   currentSoc: number,
-  config: BatteryConfig
+  config: BatteryConfig,
+  startIndex: number
 ): number[] {
   if (currentSoc >= config.maxSoc) return [];
 
   const sortedSlots = forecast
     .map((slot, index) => ({
-      index,
+      index: index + startIndex,
       consumptionPrice: slot.consumptionPrice,
     }))
     .sort((a, b) => a.consumptionPrice - b.consumptionPrice);
@@ -85,13 +86,14 @@ function getCheapestChargeSlots(
 function getBestDischargeSlots(
   forecast: SimulationDataPoint[],
   currentSoc: number,
-  config: BatteryConfig
+  config: BatteryConfig,
+  startIndex: number
 ): number[] {
   if (currentSoc <= config.minSoc) return [];
 
   const sortedSlots = forecast
     .map((slot, index) => ({
-      index,
+      index: index + startIndex,
       injectionPrice: slot.injectionPrice,
     }))
     .sort((a, b) => b.injectionPrice - a.injectionPrice);
@@ -133,6 +135,9 @@ function shouldDischargeNow(
   config: BatteryConfig,
   relayState: boolean
 ): { power: number; reason: string } {
+  if (!mostExpensiveSlots.includes(currentSlot)) {
+    return { power: 0, reason: 'not expensive slot' };
+  }
   if (current.soc <= config.minSoc) {
     return { power: 0, reason: 'battery empty' };
   }

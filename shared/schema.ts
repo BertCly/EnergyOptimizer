@@ -15,7 +15,6 @@ export const batteryConfigSchema = z.object({
 export const simulationDataPointSchema = z.object({
   time: z.date(),
   timeString: z.string(),
-  price: z.number(),
   injectionPrice: z.number().default(0),
   consumptionPrice: z.number().default(0),
   consumption: z.number(),

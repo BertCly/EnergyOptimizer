@@ -24,11 +24,11 @@ export function ForecastingPanel({ data, currentSlot }: ForecastingPanelProps) {
     );
   }
 
-  const avgPrice = forecastData.reduce((sum, d) => sum + d.price, 0) / forecastData.length;
+  const avgPrice = forecastData.reduce((sum, d) => sum + d.consumptionPrice, 0) / forecastData.length;
   const avgConsumption = forecastData.reduce((sum, d) => sum + d.consumption, 0) / forecastData.length;
   const avgPvGeneration = forecastData.reduce((sum, d) => sum + d.pvGeneration, 0) / forecastData.length;
 
-  const currentPrice = data[currentSlot]?.price || 0;
+  const currentPrice = data[currentSlot]?.consumptionPrice || 0;
   const currentConsumption = data[currentSlot]?.consumption || 0;
   const currentPvGeneration = data[currentSlot]?.pvGeneration || 0;
 
@@ -102,7 +102,7 @@ export function ForecastingPanel({ data, currentSlot }: ForecastingPanelProps) {
             {forecastData.slice(0, 4).map((slot, idx) => (
               <div key={idx} className="text-center">
                 <p className="text-gray-400">{slot.timeString}</p>
-                <p className="text-amber-400">€{slot.price.toFixed(3)}</p>
+                <p className="text-amber-400">€{slot.consumptionPrice.toFixed(3)}</p>
                 <p className="text-red-400">{slot.consumption.toFixed(0)}kW</p>
                 <p className="text-emerald-400">{slot.pvGeneration.toFixed(0)}kW</p>
               </div>
