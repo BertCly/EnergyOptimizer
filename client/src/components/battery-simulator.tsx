@@ -77,6 +77,11 @@ export function BatterySimulator() {
     runFullSimulation();
   }, [config]);
 
+  // Run simulation automatically on initial mount
+  useEffect(() => {
+    runFullSimulation();
+  }, []);
+
   const handleExportData = () => {
     if (simulationData.length === 0) {
       alert('No simulation data to export. Please run a simulation first.');

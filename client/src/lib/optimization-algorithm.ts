@@ -29,9 +29,9 @@ export function controlCycle(
 
   // PV Curtailment Logic - curtail only excess to reach 0kW net consumption
   if (current.injectionPrice < 0) {
-    let effectiveConsumption = current.consumption;
+    let effectiveConsumption = current.consumption + decision.batteryPower;
     if (decision.relayState) {
-      effectiveConsumption += 10;
+      effectiveConsumption += config.relayConsumption;
     }
     
     const excess = Math.max(0, current.pvGeneration - effectiveConsumption);
@@ -125,9 +125,9 @@ function shouldDischargeNow(
   // Calculate what's needed: consumption minus PV production
   let effectiveConsumption = current.consumption;
   
-  // Add 10kW to consumption when relay is ON
+  // Add relay consumption when relay is ON
   if (relayState) {
-    effectiveConsumption += 10;
+    effectiveConsumption += config.relayConsumption;
   }
   
   const deficit = Math.max(0, effectiveConsumption - current.pvGeneration);

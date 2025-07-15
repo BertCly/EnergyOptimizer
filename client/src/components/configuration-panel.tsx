@@ -177,11 +177,32 @@ export function ConfigurationPanel({ config, onConfigChange }: ConfigurationPane
               className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
             />
           </div>
-
+          <div>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="relayConsumption" className="text-sm font-medium text-gray-300">
+                Relay Consumption (kW)
+              </Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Additional power consumption when relay is activated</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Input
+              id="relayConsumption"
+              type="number"
+              min="0"
+              max="100"
+              value={config.relayConsumption}
+              onChange={(e) => updateConfig('relayConsumption', parseFloat(e.target.value))}
+              className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
         </CardContent>
       </Card>
-
-
     </div>
   );
 }
