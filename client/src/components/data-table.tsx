@@ -48,6 +48,9 @@ export function DataTable({ data, currentSlot, onClearLog, onExportData }: DataT
                 <th className="pb-3 text-gray-300 font-medium">PV Generation (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">Battery Power (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">SoC (%)</th>
+                <th className="pb-3 text-gray-300 font-medium">Decision</th>
+                <th className="pb-3 text-gray-300 font-medium">Relay</th>
+                <th className="pb-3 text-gray-300 font-medium">Curtailment (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">Net Power (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">Cost (€)</th>
               </tr>
@@ -61,6 +64,9 @@ export function DataTable({ data, currentSlot, onClearLog, onExportData }: DataT
                   <td className="py-2 text-emerald-400">{row.pvGeneration.toFixed(1)}</td>
                   <td className="py-2 text-blue-400">{row.batteryPower.toFixed(1)}</td>
                   <td className="py-2 text-purple-400">{row.soc.toFixed(1)}</td>
+                  <td className="py-2 text-cyan-400">{row.decision || 'hold'}</td>
+                  <td className="py-2 text-orange-400">{row.relayState ? 'ON' : 'OFF'}</td>
+                  <td className="py-2 text-pink-400">{row.curtailment?.toFixed(1) || '0.0'}</td>
                   <td className="py-2 text-gray-300">{row.netPower.toFixed(1)}</td>
                   <td className="py-2 text-gray-300">€{row.cost.toFixed(3)}</td>
                 </tr>

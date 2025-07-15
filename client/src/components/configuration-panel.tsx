@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 import { BatteryConfig } from "@shared/schema";
 
 interface ConfigurationPanelProps {
@@ -30,9 +32,19 @@ export function ConfigurationPanel({ config, onConfigChange, currentStatus }: Co
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="batteryCapacity" className="text-sm font-medium text-gray-300">
-              Battery Capacity (kWh)
-            </Label>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="batteryCapacity" className="text-sm font-medium text-gray-300">
+                Battery Capacity (kWh)
+              </Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Total energy storage capacity of the battery system</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <Input
               id="batteryCapacity"
               type="number"
@@ -44,9 +56,19 @@ export function ConfigurationPanel({ config, onConfigChange, currentStatus }: Co
             />
           </div>
           <div>
-            <Label htmlFor="maxChargeRate" className="text-sm font-medium text-gray-300">
-              Max Charge Rate (kW)
-            </Label>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="maxChargeRate" className="text-sm font-medium text-gray-300">
+                Max Charge Rate (kW)
+              </Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Maximum power the battery can accept while charging</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <Input
               id="maxChargeRate"
               type="number"
@@ -58,9 +80,19 @@ export function ConfigurationPanel({ config, onConfigChange, currentStatus }: Co
             />
           </div>
           <div>
-            <Label htmlFor="maxDischargeRate" className="text-sm font-medium text-gray-300">
-              Max Discharge Rate (kW)
-            </Label>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="maxDischargeRate" className="text-sm font-medium text-gray-300">
+                Max Discharge Rate (kW)
+              </Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Maximum power the battery can provide while discharging</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <Input
               id="maxDischargeRate"
               type="number"
@@ -72,9 +104,19 @@ export function ConfigurationPanel({ config, onConfigChange, currentStatus }: Co
             />
           </div>
           <div>
-            <Label htmlFor="initialSoc" className="text-sm font-medium text-gray-300">
-              Initial SoC (%)
-            </Label>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="initialSoc" className="text-sm font-medium text-gray-300">
+                Initial SoC (%)
+              </Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Starting state of charge when simulation begins</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <Input
               id="initialSoc"
               type="number"
@@ -94,9 +136,19 @@ export function ConfigurationPanel({ config, onConfigChange, currentStatus }: Co
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="minSoc" className="text-sm font-medium text-gray-300">
-              Min SoC (%)
-            </Label>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="minSoc" className="text-sm font-medium text-gray-300">
+                Min SoC (%)
+              </Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Minimum state of charge to preserve battery health</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <Input
               id="minSoc"
               type="number"
@@ -108,9 +160,19 @@ export function ConfigurationPanel({ config, onConfigChange, currentStatus }: Co
             />
           </div>
           <div>
-            <Label htmlFor="maxSoc" className="text-sm font-medium text-gray-300">
-              Max SoC (%)
-            </Label>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="maxSoc" className="text-sm font-medium text-gray-300">
+                Max SoC (%)
+              </Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Maximum state of charge to preserve battery health</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <Input
               id="maxSoc"
               type="number"
@@ -122,9 +184,19 @@ export function ConfigurationPanel({ config, onConfigChange, currentStatus }: Co
             />
           </div>
           <div>
-            <Label htmlFor="priceThreshold" className="text-sm font-medium text-gray-300">
-              Price Threshold (€/kWh)
-            </Label>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="priceThreshold" className="text-sm font-medium text-gray-300">
+                Price Threshold (€/kWh)
+              </Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Price level that triggers charging/discharging decisions</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <Input
               id="priceThreshold"
               type="number"

@@ -4,6 +4,7 @@ import { Zap } from "lucide-react";
 import { ConfigurationPanel } from "./configuration-panel";
 import { ChartsSection } from "./charts-section";
 import { DataTable } from "./data-table";
+import { ForecastingPanel } from "./forecasting-panel";
 import { BatteryConfig, SimulationDataPoint, batteryConfigSchema } from "@shared/schema";
 import { generateSimulationData } from "@/lib/data-generator";
 import { controlCycle } from "@/lib/optimization-algorithm";
@@ -54,36 +55,45 @@ export function BatterySimulator() {
   };
 
   useEffect(() => {
-    if (isRunning && currentSlot < simulationData.length) {
-      const updatedData = [...simulationData];
-      const current = updatedData[currentSlot];
-      
-      // Apply control cycle algorithm
-      const decision = controlCycle(currentSlot, updatedData, config);
-      
-      // Update battery power
-      current.batteryPower = decision.batteryPower;
-      
-      // Calculate net power (positive = from grid, negative = to grid)
-      current.netPower = current.consumption - current.pvGeneration - current.batteryPower;
-      
-      // Calculate cost for this interval (15 minutes = 0.25 hours)
-      current.cost = Math.max(0, current.netPower) * current.price * 0.25;
-      
-      // Update SoC based on battery power
-      const energyChange = current.batteryPower * 0.25; // kWh for 15-min interval
-      const socChange = (energyChange / config.batteryCapacity) * 100;
-      current.soc = Math.max(config.minSoc, Math.min(config.maxSoc, current.soc + socChange));
-      
-      // Update next slot's initial SoC
-      if (currentSlot < simulationData.length - 1) {
-        updatedData[currentSlot + 1].soc = current.soc;
-      }
-      
-      setSimulationData(updatedData);
-      setTotalCost(prev => prev + current.cost);
+    if (isRunning && currentSlot < simulationData.length && simulationData.length > 0) {
+      setSimulationData(prevData => {
+        const updatedData = [...prevData];
+        const current = updatedData[currentSlot];
+        
+        if (!current) return prevData;
+        
+        // Apply control cycle algorithm
+        const decision = controlCycle(currentSlot, updatedData, config);
+        
+        // Update battery power and control decisions
+        current.batteryPower = decision.batteryPower;
+        current.curtailment = decision.curtailment;
+        current.relayState = decision.relayState;
+        current.decision = decision.decision;
+        
+        // Calculate net power (positive = from grid, negative = to grid)
+        current.netPower = current.consumption - current.pvGeneration - current.batteryPower;
+        
+        // Calculate cost for this interval (15 minutes = 0.25 hours)
+        current.cost = Math.max(0, current.netPower) * current.price * 0.25;
+        
+        // Update SoC based on battery power
+        const energyChange = current.batteryPower * 0.25; // kWh for 15-min interval
+        const socChange = (energyChange / config.batteryCapacity) * 100;
+        current.soc = Math.max(config.minSoc, Math.min(config.maxSoc, current.soc + socChange));
+        
+        // Update next slot's initial SoC
+        if (currentSlot < updatedData.length - 1) {
+          updatedData[currentSlot + 1].soc = current.soc;
+        }
+        
+        // Update total cost
+        setTotalCost(prev => prev + current.cost);
+        
+        return updatedData;
+      });
     }
-  }, [currentSlot, isRunning, config, simulationData]);
+  }, [currentSlot, isRunning, config]);
 
   const handleExportData = () => {
     if (simulationData.length === 0) {
@@ -93,10 +103,10 @@ export function BatterySimulator() {
     
     const visibleData = simulationData.slice(0, currentSlot + 1);
     const csvData = visibleData.map(d => 
-      `${d.timeString},${d.price.toFixed(3)},${d.consumption.toFixed(1)},${d.pvGeneration.toFixed(1)},${d.batteryPower.toFixed(1)},${d.soc.toFixed(1)},${d.netPower.toFixed(1)},${d.cost.toFixed(3)}`
+      `${d.timeString},${d.price.toFixed(3)},${d.consumption.toFixed(1)},${d.pvGeneration.toFixed(1)},${d.batteryPower.toFixed(1)},${d.soc.toFixed(1)},${d.decision || 'hold'},${d.relayState ? 'ON' : 'OFF'},${d.curtailment?.toFixed(1) || '0.0'},${d.netPower.toFixed(1)},${d.cost.toFixed(3)}`
     ).join('\n');
     
-    const csv = 'Time,Price (€/kWh),Consumption (kW),PV Generation (kW),Battery Power (kW),SoC (%),Net Power (kW),Cost (€)\n' + csvData;
+    const csv = 'Time,Price (€/kWh),Consumption (kW),PV Generation (kW),Battery Power (kW),SoC (%),Decision,Relay,Curtailment (kW),Net Power (kW),Cost (€)\n' + csvData;
     
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -136,12 +146,13 @@ export function BatterySimulator() {
 
       <div className="max-w-7xl mx-auto px-6 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-6">
             <ConfigurationPanel
               config={config}
               onConfigChange={setConfig}
               currentStatus={currentStatus}
             />
+            <ForecastingPanel data={simulationData} currentSlot={currentSlot} />
           </div>
 
           <div className="lg:col-span-3">

@@ -18,6 +18,8 @@ export function controlCycle(
   let decision: ControlDecision = {
     batteryPower: 0,
     curtailment: 0,
+    relayState: false,
+    decision: 'hold',
   };
 
   // Charging logic
@@ -27,6 +29,7 @@ export function controlCycle(
       ((config.maxSoc - current.soc) * config.batteryCapacity) / 100 / 4 // Convert to kW for 15-min interval
     );
     decision.batteryPower = Math.min(maxCharge, config.maxChargeRate);
+    decision.decision = 'charge';
   }
   // Discharging logic
   else if (shouldDischargeNow(currentSlot, mostExpensiveSlots, current.soc, config)) {
@@ -35,6 +38,19 @@ export function controlCycle(
       ((current.soc - config.minSoc) * config.batteryCapacity) / 100 / 4 // Convert to kW for 15-min interval
     );
     decision.batteryPower = -Math.min(maxDischarge, config.maxDischargeRate);
+    decision.decision = 'discharge';
+  }
+
+  // Relay control logic - activate flexible loads when PV exceeds consumption and battery is full
+  if (current.pvGeneration > current.consumption && current.soc >= config.maxSoc) {
+    decision.relayState = true;
+  }
+
+  // PV curtailment logic - limit PV if excess generation is too high
+  const predictedInjection = current.pvGeneration + decision.batteryPower - current.consumption;
+  const maxInject = 50; // Maximum injection to grid (kW)
+  if (predictedInjection > maxInject) {
+    decision.curtailment = predictedInjection - maxInject;
   }
 
   return decision;

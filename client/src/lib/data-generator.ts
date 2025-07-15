@@ -52,6 +52,9 @@ export function generateSimulationData(initialSoc: number): SimulationDataPoint[
       soc: initialSoc,
       netPower: 0,
       cost: 0,
+      curtailment: 0,
+      relayState: false,
+      decision: 'hold',
     });
   }
 

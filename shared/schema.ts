@@ -22,12 +22,17 @@ export const simulationDataPointSchema = z.object({
   soc: z.number(),
   netPower: z.number(),
   cost: z.number(),
+  curtailment: z.number().default(0),
+  relayState: z.boolean().default(false),
+  decision: z.string().default('hold'),
 });
 
 // Control Decision Schema
 export const controlDecisionSchema = z.object({
   batteryPower: z.number(),
   curtailment: z.number().default(0),
+  relayState: z.boolean().default(false),
+  decision: z.string().default('hold'),
 });
 
 // Export types

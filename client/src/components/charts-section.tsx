@@ -17,6 +17,14 @@ export function ChartsSection({ data, currentSlot }: ChartsSectionProps) {
     const initCharts = async () => {
       const Chart = (await import('chart.js/auto')).default;
       
+      // Register Chart.js tooltip plugin
+      Chart.register({
+        id: 'customTooltip',
+        afterDatasetsDraw: function(chart: any) {
+          // Custom tooltip functionality will be handled by Chart.js built-in tooltips
+        }
+      });
+      
       if (mainChartRef.current && !mainChartInstance.current) {
         const ctx = mainChartRef.current.getContext('2d');
         if (ctx) {
@@ -62,9 +70,38 @@ export function ChartsSection({ data, currentSlot }: ChartsSectionProps) {
             options: {
               responsive: true,
               maintainAspectRatio: false,
+              interaction: {
+                mode: 'index',
+                intersect: false,
+              },
               plugins: {
                 legend: {
                   display: false,
+                },
+                tooltip: {
+                  mode: 'index',
+                  intersect: false,
+                  backgroundColor: 'rgba(31, 41, 55, 0.95)',
+                  titleColor: '#F9FAFB',
+                  bodyColor: '#F9FAFB',
+                  borderColor: '#6B7280',
+                  borderWidth: 1,
+                  callbacks: {
+                    afterBody: function(context: any) {
+                      const dataIndex = context[0].dataIndex;
+                      if (dataIndex < data.length && data[dataIndex]) {
+                        const point = data[dataIndex];
+                        return [
+                          '',
+                          `Decision: ${point.decision || 'hold'}`,
+                          `Relay State: ${point.relayState ? 'ON' : 'OFF'}`,
+                          `PV Curtailment: ${point.curtailment?.toFixed(1) || '0.0'} kW`,
+                          `Net Power: ${point.netPower?.toFixed(1) || '0.0'} kW`,
+                        ];
+                      }
+                      return [];
+                    }
+                  }
                 },
               },
               scales: {
