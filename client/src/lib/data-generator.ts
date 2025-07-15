@@ -35,11 +35,15 @@ export function generateSimulationData(initialSoc: number): SimulationDataPoint[
 
     // PV generation pattern (10:00-16:00)
     let pvGeneration = 0;
+    let pvForecast = 0;
     if (hour >= 10 && hour <= 16) {
       const midDay = 13; // Peak at 13:00
       const distanceFromPeak = Math.abs(hour - midDay);
       const maxGeneration = 40;
+      // Actual PV generation (with weather variability)
       pvGeneration = Math.max(0, maxGeneration * (1 - distanceFromPeak / 3) + Math.random() * 5);
+      // PV forecast (slightly more optimistic, without weather variability)
+      pvForecast = Math.max(0, maxGeneration * (1 - distanceFromPeak / 3) + 2);
     }
 
     data.push({
@@ -48,6 +52,7 @@ export function generateSimulationData(initialSoc: number): SimulationDataPoint[
       price,
       consumption,
       pvGeneration,
+      pvForecast,
       batteryPower: 0,
       soc: initialSoc,
       netPower: 0,

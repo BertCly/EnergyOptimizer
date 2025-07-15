@@ -18,6 +18,7 @@ export const simulationDataPointSchema = z.object({
   price: z.number(),
   consumption: z.number(),
   pvGeneration: z.number(),
+  pvForecast: z.number(),
   batteryPower: z.number(),
   soc: z.number(),
   netPower: z.number(),

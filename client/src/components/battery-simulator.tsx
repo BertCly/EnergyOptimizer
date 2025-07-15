@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Zap } from "lucide-react";
 import { ConfigurationPanel } from "./configuration-panel";
 import { ChartsSection } from "./charts-section";
-import { DataTable } from "./data-table";
+import { EditableDataTable } from "./editable-data-table";
 import { ForecastingPanel } from "./forecasting-panel";
 import { BatteryConfig, SimulationDataPoint, batteryConfigSchema } from "@shared/schema";
 import { generateSimulationData } from "@/lib/data-generator";
@@ -11,7 +11,9 @@ import { controlCycle } from "@/lib/optimization-algorithm";
 
 export function BatterySimulator() {
   const [config, setConfig] = useState<BatteryConfig>(batteryConfigSchema.parse({}));
-  const [simulationData, setSimulationData] = useState<SimulationDataPoint[]>([]);
+  const [simulationData, setSimulationData] = useState<SimulationDataPoint[]>(() => 
+    generateSimulationData(batteryConfigSchema.parse({}).initialSoc)
+  );
   const [currentSlot, setCurrentSlot] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [totalCost, setTotalCost] = useState(0);
@@ -103,10 +105,10 @@ export function BatterySimulator() {
     
     const visibleData = simulationData.slice(0, currentSlot + 1);
     const csvData = visibleData.map(d => 
-      `${d.timeString},${d.price.toFixed(3)},${d.consumption.toFixed(1)},${d.pvGeneration.toFixed(1)},${d.batteryPower.toFixed(1)},${d.soc.toFixed(1)},${d.decision || 'hold'},${d.relayState ? 'ON' : 'OFF'},${d.curtailment?.toFixed(1) || '0.0'},${d.netPower.toFixed(1)},${d.cost.toFixed(3)}`
+      `${d.timeString},${d.price.toFixed(3)},${d.consumption.toFixed(1)},${d.pvGeneration.toFixed(1)},${d.pvForecast?.toFixed(1) || '0.0'},${d.batteryPower.toFixed(1)},${d.soc.toFixed(1)},${d.decision || 'hold'},${d.relayState ? 'ON' : 'OFF'},${d.curtailment?.toFixed(1) || '0.0'},${d.netPower.toFixed(1)},${d.cost.toFixed(3)}`
     ).join('\n');
     
-    const csv = 'Time,Price (€/kWh),Consumption (kW),PV Generation (kW),Battery Power (kW),SoC (%),Decision,Relay,Curtailment (kW),Net Power (kW),Cost (€)\n' + csvData;
+    const csv = 'Time,Price (€/kWh),Consumption (kW),PV Generation (kW),PV Forecast (kW),Battery Power (kW),SoC (%),Decision,Relay,Curtailment (kW),Net Power (kW),Cost (€)\n' + csvData;
     
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -118,7 +120,7 @@ export function BatterySimulator() {
   };
 
   const handleClearLog = () => {
-    setSimulationData([]);
+    setSimulationData(generateSimulationData(config.initialSoc));
     setCurrentSlot(0);
     setTotalCost(0);
   };
@@ -161,11 +163,12 @@ export function BatterySimulator() {
         </div>
 
         <div className="mt-6">
-          <DataTable
+          <EditableDataTable
             data={simulationData}
-            currentSlot={currentSlot}
+            onDataChange={setSimulationData}
             onClearLog={handleClearLog}
             onExportData={handleExportData}
+            isSimulationRunning={isRunning}
           />
         </div>
       </div>

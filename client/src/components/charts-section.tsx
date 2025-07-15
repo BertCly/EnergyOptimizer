@@ -58,6 +58,15 @@ export function ChartsSection({ data, currentSlot }: ChartsSectionProps) {
                   tension: 0.1,
                 },
                 {
+                  label: 'PV Forecast (kW)',
+                  data: [],
+                  borderColor: '#6EE7B7',
+                  backgroundColor: 'rgba(110, 231, 183, 0.1)',
+                  yAxisID: 'y',
+                  tension: 0.1,
+                  borderDash: [5, 5],
+                },
+                {
                   label: 'Battery Power (kW)',
                   data: [],
                   borderColor: '#3B82F6',
@@ -203,19 +212,28 @@ export function ChartsSection({ data, currentSlot }: ChartsSectionProps) {
       const prices = visibleData.map(d => d.price);
       const consumption = visibleData.map(d => d.consumption);
       const pvGeneration = visibleData.map(d => d.pvGeneration);
+      const pvForecast = visibleData.map(d => d.pvForecast || 0);
       const batteryPower = visibleData.map(d => d.batteryPower);
       const soc = visibleData.map(d => d.soc);
 
-      mainChartInstance.current.data.labels = labels;
-      mainChartInstance.current.data.datasets[0].data = prices;
-      mainChartInstance.current.data.datasets[1].data = consumption;
-      mainChartInstance.current.data.datasets[2].data = pvGeneration;
-      mainChartInstance.current.data.datasets[3].data = batteryPower;
-      mainChartInstance.current.update('none');
+      const mainChart = mainChartInstance.current;
+      const socChart = socChartInstance.current;
 
-      socChartInstance.current.data.labels = labels;
-      socChartInstance.current.data.datasets[0].data = soc;
-      socChartInstance.current.update('none');
+      if (mainChart && mainChart.data && mainChart.data.datasets && mainChart.data.datasets.length >= 5) {
+        mainChart.data.labels = labels;
+        mainChart.data.datasets[0].data = prices;
+        mainChart.data.datasets[1].data = consumption;
+        mainChart.data.datasets[2].data = pvGeneration;
+        mainChart.data.datasets[3].data = pvForecast;
+        mainChart.data.datasets[4].data = batteryPower;
+        mainChart.update('none');
+      }
+
+      if (socChart && socChart.data && socChart.data.datasets && socChart.data.datasets.length >= 1) {
+        socChart.data.labels = labels;
+        socChart.data.datasets[0].data = soc;
+        socChart.update('none');
+      }
     }
   }, [data, currentSlot]);
 
@@ -237,6 +255,10 @@ export function ChartsSection({ data, currentSlot }: ChartsSectionProps) {
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
                 <span className="text-sm text-gray-300">PV Generation</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-emerald-300 rounded-full border-2 border-dashed border-emerald-300"></div>
+                <span className="text-sm text-gray-300">PV Forecast</span>
               </div>
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
