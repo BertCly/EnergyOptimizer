@@ -104,8 +104,7 @@ function shouldChargeNow(
 
   if (futureDeficit <= 0 && current.price > config.priceThreshold) return 0;
 
-  const available = ((config.maxSoc - current.soc) * config.batteryCapacity) / 100 / 4;
-  return Math.min(config.maxChargeRate, available);
+  return config.maxChargeRate;
 }
 
 function shouldDischargeNow(
@@ -117,6 +116,5 @@ function shouldDischargeNow(
   if (!mostExpensiveSlots.includes(currentSlot) && current.price < config.priceThreshold) return 0;
   if (current.soc <= config.minSoc) return 0;
 
-  const available = ((current.soc - config.minSoc) * config.batteryCapacity) / 100 / 4;
-  return Math.min(config.maxDischargeRate, available);
+  return config.maxDischargeRate;
 }

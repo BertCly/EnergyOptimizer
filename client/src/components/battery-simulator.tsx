@@ -6,13 +6,13 @@ import { ChartsSection } from "./charts-section";
 import { EditableDataTable } from "./editable-data-table";
 
 import { BatteryConfig, SimulationDataPoint, batteryConfigSchema } from "@shared/schema";
-import { generateSimulationData } from "@/lib/data-generator";
+import { generateFixedSimulationData } from "@/lib/fixed-data";
 import { controlCycle } from "@/lib/optimization-algorithm";
 
 export function BatterySimulator() {
   const [config, setConfig] = useState<BatteryConfig>(batteryConfigSchema.parse({}));
   const [simulationData, setSimulationData] = useState<SimulationDataPoint[]>(() => 
-    generateSimulationData(batteryConfigSchema.parse({}).initialSoc)
+    generateFixedSimulationData(batteryConfigSchema.parse({}).initialSoc)
   );
   const [currentSlot, setCurrentSlot] = useState(47); // Show all data
   const [isRunning, setIsRunning] = useState(false);
@@ -25,7 +25,7 @@ export function BatterySimulator() {
     setCurrentSlot(47);
     setTotalCost(0);
     
-    const data = generateSimulationData(config.initialSoc);
+    const data = generateFixedSimulationData(config.initialSoc);
     const optimizedData = [...data];
     let totalCostAccumulator = 0;
     

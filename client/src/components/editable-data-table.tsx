@@ -28,8 +28,10 @@ export function EditableDataTable({
     const updatedData = [...data];
     const row = updatedData[rowIndex];
     
-    if (field === 'price') {
-      row.price = numericValue;
+    if (field === 'injectionPrice') {
+      row.injectionPrice = numericValue;
+    } else if (field === 'consumptionPrice') {
+      row.consumptionPrice = numericValue;
     } else if (field === 'consumption') {
       row.consumption = numericValue;
     } else if (field === 'pvGeneration') {
@@ -89,7 +91,7 @@ export function EditableDataTable({
         onClick={() => handleCellClick(rowIndex, field)}
         title={!isSimulationRunning ? "Click to edit" : "Stop simulation to edit"}
       >
-        {value.toFixed(field === 'price' ? 3 : 1)}
+        {value.toFixed(field === 'injectionPrice' || field === 'consumptionPrice' ? 3 : 1)}
       </span>
     );
   };
@@ -127,7 +129,8 @@ export function EditableDataTable({
             <thead className="border-b border-gray-700 sticky top-0 bg-gray-800">
               <tr className="text-left">
                 <th className="pb-3 text-gray-300 font-medium">Time</th>
-                <th className="pb-3 text-gray-300 font-medium">Price (€/kWh)</th>
+                <th className="pb-3 text-gray-300 font-medium">Injectie Cost (€/kWh)</th>
+                <th className="pb-3 text-gray-300 font-medium">Consumptie Cost (€/kWh)</th>
                 <th className="pb-3 text-gray-300 font-medium">Consumption (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">PV Generation (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">PV Forecast (kW)</th>
@@ -146,10 +149,18 @@ export function EditableDataTable({
                   <td className="py-2 text-gray-300">{row.timeString}</td>
                   <td className="py-2">
                     <EditableCell
-                      value={row.price}
+                      value={row.injectionPrice}
                       rowIndex={index}
-                      field="price"
+                      field="injectionPrice"
                       className="text-amber-400"
+                    />
+                  </td>
+                  <td className="py-2">
+                    <EditableCell
+                      value={row.consumptionPrice}
+                      rowIndex={index}
+                      field="consumptionPrice"
+                      className="text-orange-400"
                     />
                   </td>
                   <td className="py-2">

@@ -16,8 +16,10 @@ export function ChartsSection({ data, currentSlot }: ChartsSectionProps) {
   useEffect(() => {
     const initCharts = async () => {
       const Chart = (await import('chart.js/auto')).default;
+      const annotationPlugin = (await import('chartjs-plugin-annotation')).default;
       
-      // Register Chart.js tooltip plugin
+      // Register Chart.js plugins
+      Chart.register(annotationPlugin);
       Chart.register({
         id: 'customTooltip',
         afterDatasetsDraw: function(chart: any) {
@@ -182,6 +184,83 @@ export function ChartsSection({ data, currentSlot }: ChartsSectionProps) {
               plugins: {
                 legend: {
                   display: false,
+                },
+                tooltip: {
+                  backgroundColor: 'rgba(17, 24, 39, 0.95)',
+                  titleColor: '#F9FAFB',
+                  bodyColor: '#F9FAFB',
+                  borderColor: '#6B7280',
+                  borderWidth: 1,
+                  callbacks: {
+                    labelColor: function(context: any) {
+                      return {
+                        borderColor: '#8B5CF6',
+                        backgroundColor: '#8B5CF6',
+                      };
+                    },
+                    afterBody: function(context: any) {
+                      const dataIndex = context[0].dataIndex;
+                      if (dataIndex < data.length && data[dataIndex]) {
+                        const point = data[dataIndex];
+                        return [
+                          '',
+                          `Decision: ${point.decision || 'hold'}`,
+                          `Battery Power: ${point.batteryPower?.toFixed(1) || '0.0'} kW`,
+                          `Net Power: ${point.netPower?.toFixed(1) || '0.0'} kW`,
+                          `Cost: €${point.cost?.toFixed(3) || '0.000'}`,
+                        ];
+                      }
+                      return [];
+                    }
+                  }
+                },
+                annotation: {
+                  annotations: {
+                    minSocLine: {
+                      type: 'line',
+                      yMin: 5,
+                      yMax: 5,
+                      borderColor: '#EF4444',
+                      borderWidth: 2,
+                      borderDash: [5, 5],
+                      label: {
+                        content: 'Min SoC (5%)',
+                        enabled: true,
+                        position: 'start',
+                        color: '#EF4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        borderColor: '#EF4444',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        padding: 4,
+                        font: {
+                          size: 10,
+                        },
+                      },
+                    },
+                    maxSocLine: {
+                      type: 'line',
+                      yMin: 95,
+                      yMax: 95,
+                      borderColor: '#10B981',
+                      borderWidth: 2,
+                      borderDash: [5, 5],
+                      label: {
+                        content: 'Max SoC (95%)',
+                        enabled: true,
+                        position: 'start',
+                        color: '#10B981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderColor: '#10B981',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        padding: 4,
+                        font: {
+                          size: 10,
+                        },
+                      },
+                    },
+                  },
                 },
               },
               scales: {
