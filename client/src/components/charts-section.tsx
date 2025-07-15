@@ -13,6 +13,38 @@ export function ChartsSection({ data, currentSlot }: ChartsSectionProps) {
   const mainChartInstance = useRef<any>(null);
   const socChartInstance = useRef<any>(null);
 
+  const updateCharts = () => {
+    if (mainChartInstance.current && socChartInstance.current && data.length > 0) {
+      const visibleData = data.slice(0, currentSlot + 1);
+      const labels = visibleData.map(d => d.timeString);
+      const prices = visibleData.map(d => d.price);
+      const consumption = visibleData.map(d => d.consumption);
+      const pvGeneration = visibleData.map(d => d.pvGeneration);
+      const pvForecast = visibleData.map(d => d.pvForecast || 0);
+      const batteryPower = visibleData.map(d => d.batteryPower);
+      const soc = visibleData.map(d => d.soc);
+
+      const mainChart = mainChartInstance.current;
+      const socChart = socChartInstance.current;
+
+      if (mainChart && mainChart.data && mainChart.data.datasets && mainChart.data.datasets.length >= 5) {
+        mainChart.data.labels = labels;
+        mainChart.data.datasets[0].data = prices;
+        mainChart.data.datasets[1].data = consumption;
+        mainChart.data.datasets[2].data = pvGeneration;
+        mainChart.data.datasets[3].data = pvForecast;
+        mainChart.data.datasets[4].data = batteryPower;
+        mainChart.update('none');
+      }
+
+      if (socChart && socChart.data && socChart.data.datasets && socChart.data.datasets.length >= 1) {
+        socChart.data.labels = labels;
+        socChart.data.datasets[0].data = soc;
+        socChart.update('none');
+      }
+    }
+  };
+
   useEffect(() => {
     const initCharts = async () => {
       const Chart = (await import('chart.js/auto')).default;
@@ -235,7 +267,7 @@ export function ChartsSection({ data, currentSlot }: ChartsSectionProps) {
                       },
                     },
                   },
-                },
+                } as any,
               },
               scales: {
                 y: {
@@ -261,41 +293,15 @@ export function ChartsSection({ data, currentSlot }: ChartsSectionProps) {
           });
         }
       }
+
+      updateCharts();
     };
 
     initCharts();
   }, []);
 
   useEffect(() => {
-    if (mainChartInstance.current && socChartInstance.current && data.length > 0) {
-      const visibleData = data.slice(0, currentSlot + 1);
-      const labels = visibleData.map(d => d.timeString);
-      const prices = visibleData.map(d => d.price);
-      const consumption = visibleData.map(d => d.consumption);
-      const pvGeneration = visibleData.map(d => d.pvGeneration);
-      const pvForecast = visibleData.map(d => d.pvForecast || 0);
-      const batteryPower = visibleData.map(d => d.batteryPower);
-      const soc = visibleData.map(d => d.soc);
-
-      const mainChart = mainChartInstance.current;
-      const socChart = socChartInstance.current;
-
-      if (mainChart && mainChart.data && mainChart.data.datasets && mainChart.data.datasets.length >= 5) {
-        mainChart.data.labels = labels;
-        mainChart.data.datasets[0].data = prices;
-        mainChart.data.datasets[1].data = consumption;
-        mainChart.data.datasets[2].data = pvGeneration;
-        mainChart.data.datasets[3].data = pvForecast;
-        mainChart.data.datasets[4].data = batteryPower;
-        mainChart.update('none');
-      }
-
-      if (socChart && socChart.data && socChart.data.datasets && socChart.data.datasets.length >= 1) {
-        socChart.data.labels = labels;
-        socChart.data.datasets[0].data = soc;
-        socChart.update('none');
-      }
-    }
+    updateCharts();
   }, [data, currentSlot]);
 
   return (

@@ -40,6 +40,7 @@ export function BatterySimulator() {
       current.curtailment = decision.curtailment;
       current.relayState = decision.relayState;
       current.decision = decision.decision;
+      current.reason = decision.reason;
       
       // Account for relay increasing consumption by 10kW when ON
       let effectiveConsumption = current.consumption;

@@ -28,6 +28,7 @@ export const simulationDataPointSchema = z.object({
   curtailment: z.number().default(0),
   relayState: z.boolean().default(false),
   decision: z.string().default('hold'),
+  reason: z.string().default(''),
 });
 
 // Control Decision Schema
@@ -36,6 +37,7 @@ export const controlDecisionSchema = z.object({
   curtailment: z.number().default(0),
   relayState: z.boolean().default(false),
   decision: z.string().default('hold'),
+  reason: z.string().default(''),
 });
 
 // Export types
