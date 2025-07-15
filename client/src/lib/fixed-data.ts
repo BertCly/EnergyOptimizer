@@ -78,6 +78,7 @@ export function generateFixedSimulationData(initialSoc: number): SimulationDataP
       curtailment: 0,
       relayState: false,
       decision: 'hold',
+      reason: '',
     });
   }
 

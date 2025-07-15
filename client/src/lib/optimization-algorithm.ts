@@ -20,6 +20,7 @@ export function controlCycle(
     curtailment: 0,
     relayState: false,
     decision: 'hold',
+    reason: '',
   };
 
   // Relay Control Logic - determine first as it affects consumption
@@ -39,17 +40,22 @@ export function controlCycle(
   }
 
   // Charging logic
-  const chargePower = shouldChargeNow(currentSlot, cheapestSlots, current, config, forecast);
-  if (chargePower > 0) {
-    decision.batteryPower = chargePower;
+  const chargeDecision = shouldChargeNow(currentSlot, cheapestSlots, current, config, forecast);
+  if (chargeDecision.power > 0) {
+    decision.batteryPower = chargeDecision.power;
     decision.decision = 'charge';
+    decision.reason = chargeDecision.reason;
   }
   // Discharging logic
   else {
-    const dischargePower = shouldDischargeNow(currentSlot, mostExpensiveSlots, current, config, decision.relayState);
-    if (dischargePower > 0) {
-      decision.batteryPower = -dischargePower;
+    const dischargeDecision = shouldDischargeNow(currentSlot, mostExpensiveSlots, current, config, decision.relayState);
+    if (dischargeDecision.power > 0) {
+      decision.batteryPower = -dischargeDecision.power;
       decision.decision = 'discharge';
+      decision.reason = dischargeDecision.reason;
+    } else {
+      // when holding, pick reason from dischargeDecision or chargeDecision
+      decision.reason = dischargeDecision.reason || chargeDecision.reason;
     }
   }
 
@@ -100,17 +106,23 @@ function shouldChargeNow(
   current: SimulationDataPoint,
   config: BatteryConfig,
   forecast: SimulationDataPoint[]
-): number {
-  if (!cheapestSlots.includes(currentSlot)) return 0;
-  if (current.soc >= config.maxSoc) return 0;
+): { power: number; reason: string } {
+  if (!cheapestSlots.includes(currentSlot)) {
+    return { power: 0, reason: 'not cheapest slot' };
+  }
+  if (current.soc >= config.maxSoc) {
+    return { power: 0, reason: 'battery full' };
+  }
 
   const futureDeficit = forecast
     .slice(0, 8)
     .reduce((sum, slot) => sum + Math.max(0, slot.consumption - slot.pvForecast), 0);
 
-  if (futureDeficit <= 0) return 0;
+  if (futureDeficit <= 0) {
+    return { power: 0, reason: 'no future deficit' };
+  }
 
-  return config.maxChargeRate;
+  return { power: config.maxChargeRate, reason: 'cheap energy available' };
 }
 
 function shouldDischargeNow(
@@ -119,8 +131,10 @@ function shouldDischargeNow(
   current: SimulationDataPoint,
   config: BatteryConfig,
   relayState: boolean
-): number {
-  if (current.soc <= config.minSoc) return 0;
+): { power: number; reason: string } {
+  if (current.soc <= config.minSoc) {
+    return { power: 0, reason: 'battery empty' };
+  }
 
   // Calculate what's needed: consumption minus PV production
   let effectiveConsumption = current.consumption;
@@ -131,7 +145,11 @@ function shouldDischargeNow(
   }
   
   const deficit = Math.max(0, effectiveConsumption - current.pvGeneration);
-  
+
+  if (deficit <= 0) {
+    return { power: 0, reason: 'no deficit to cover' };
+  }
+
   // Only discharge what's actually needed, up to max discharge rate
-  return Math.min(deficit, config.maxDischargeRate);
+  return { power: Math.min(deficit, config.maxDischargeRate), reason: 'cover consumption' };
 }

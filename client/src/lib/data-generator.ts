@@ -68,6 +68,7 @@ export function generateSimulationData(initialSoc: number): SimulationDataPoint[
       curtailment: 0,
       relayState: false,
       decision: 'hold',
+      reason: '',
     });
   }
 
