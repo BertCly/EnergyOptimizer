@@ -18,6 +18,11 @@ Preferred communication style: Simple, everyday language.
 ✓ Added matching tooltip colors for better chart readability
 ✓ Fixed NODE_ENV requirement by setting default value in server
 ✓ Replaced timed simulation with instant full optimization calculation
+✓ Added total cost display in dashboard header ("Totale Kosten")
+✓ Removed Price Threshold from configuration and optimization logic
+✓ Updated discharge logic to only discharge what's needed for consumption minus PV
+✓ Implemented relay increasing consumption by 10kW when ON
+✓ Reorganized data table with Dutch labels: "Injectie Cost" and "Consumptie Cost"
 
 ## System Architecture
 

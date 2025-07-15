@@ -22,6 +22,16 @@ export function controlCycle(
     decision: 'hold',
   };
 
+  // Relay Control Logic - determine first as it affects consumption
+  const pvOverproduction = Math.max(0, current.pvGeneration - current.consumption);
+  decision.relayState = (pvOverproduction > 0 && current.soc >= config.maxSoc) ||
+                        (current.consumptionPrice <= 0);
+
+  // PV Curtailment Logic - only when EPEX price is negative
+  if (current.injectionPrice < 0) {
+    decision.curtailment = current.pvGeneration;
+  }
+
   // Charging logic
   const chargePower = shouldChargeNow(currentSlot, cheapestSlots, current, config, forecast);
   if (chargePower > 0) {
@@ -30,22 +40,12 @@ export function controlCycle(
   }
   // Discharging logic
   else {
-    const dischargePower = shouldDischargeNow(currentSlot, mostExpensiveSlots, current, config);
+    const dischargePower = shouldDischargeNow(currentSlot, mostExpensiveSlots, current, config, decision.relayState);
     if (dischargePower > 0) {
       decision.batteryPower = -dischargePower;
       decision.decision = 'discharge';
     }
   }
-
-  // PV Curtailment Logic - only when EPEX price is negative
-  if (current.injectionPrice < 0) {
-    decision.curtailment = current.pvGeneration;
-  }
-  
-  // Relay Control Logic
-  const pvOverproduction = Math.max(0, current.pvGeneration - current.consumption);
-  decision.relayState = (pvOverproduction > 0 && current.soc >= config.maxSoc) ||
-                        (current.consumptionPrice <= 0);
 
   return decision;
 }
@@ -95,14 +95,14 @@ function shouldChargeNow(
   config: BatteryConfig,
   forecast: SimulationDataPoint[]
 ): number {
-  if (!cheapestSlots.includes(currentSlot) && current.price > config.priceThreshold) return 0;
+  if (!cheapestSlots.includes(currentSlot)) return 0;
   if (current.soc >= config.maxSoc) return 0;
 
   const futureDeficit = forecast
     .slice(0, 8)
     .reduce((sum, slot) => sum + Math.max(0, slot.consumption - slot.pvForecast), 0);
 
-  if (futureDeficit <= 0 && current.price > config.priceThreshold) return 0;
+  if (futureDeficit <= 0) return 0;
 
   return config.maxChargeRate;
 }
@@ -111,10 +111,21 @@ function shouldDischargeNow(
   currentSlot: number,
   mostExpensiveSlots: number[],
   current: SimulationDataPoint,
-  config: BatteryConfig
+  config: BatteryConfig,
+  relayState: boolean
 ): number {
-  if (!mostExpensiveSlots.includes(currentSlot) && current.price < config.priceThreshold) return 0;
   if (current.soc <= config.minSoc) return 0;
 
-  return config.maxDischargeRate;
+  // Calculate what's needed: consumption minus PV production
+  let effectiveConsumption = current.consumption;
+  
+  // Add 10kW to consumption when relay is ON
+  if (relayState) {
+    effectiveConsumption += 10;
+  }
+  
+  const deficit = Math.max(0, effectiveConsumption - current.pvGeneration);
+  
+  // Only discharge what's actually needed, up to max discharge rate
+  return Math.min(deficit, config.maxDischargeRate);
 }

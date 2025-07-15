@@ -42,8 +42,14 @@ export function BatterySimulator() {
       current.relayState = decision.relayState;
       current.decision = decision.decision;
       
+      // Account for relay increasing consumption by 10kW when ON
+      let effectiveConsumption = current.consumption;
+      if (current.relayState) {
+        effectiveConsumption += 10;
+      }
+      
       // Calculate net power (positive = from grid, negative = to grid)
-      current.netPower = current.consumption - current.pvGeneration - current.batteryPower;
+      current.netPower = effectiveConsumption - current.pvGeneration - current.batteryPower;
       
       // Calculate cost for this interval (15 minutes = 0.25 hours)
       const pricePerKWh = current.netPower >= 0 ? current.consumptionPrice : current.injectionPrice;
@@ -115,6 +121,12 @@ export function BatterySimulator() {
             <h1 className="text-xl font-semibold text-gray-50">Battery Cost Optimization Simulator</h1>
           </div>
           <div className="flex items-center space-x-4">
+            <div className="text-right">
+              <div className="text-sm text-gray-400">Totale Kosten</div>
+              <div className="text-lg font-semibold text-green-400">
+                €{totalCost.toFixed(2)}
+              </div>
+            </div>
             <Button
               onClick={isRunning ? stopSimulation : startSimulation}
               className="bg-blue-500 hover:bg-blue-600 text-white font-medium"

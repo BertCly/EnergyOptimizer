@@ -177,31 +177,7 @@ export function ConfigurationPanel({ config, onConfigChange }: ConfigurationPane
               className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <Label htmlFor="priceThreshold" className="text-sm font-medium text-gray-300">
-                Price Threshold (€/kWh)
-              </Label>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="w-4 h-4 text-gray-400" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Price level that triggers charging/discharging decisions</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            <Input
-              id="priceThreshold"
-              type="number"
-              step="0.01"
-              min="0"
-              max="1"
-              value={config.priceThreshold}
-              onChange={(e) => updateConfig('priceThreshold', parseFloat(e.target.value))}
-              className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+
         </CardContent>
       </Card>
 
