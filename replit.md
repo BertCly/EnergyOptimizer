@@ -23,6 +23,9 @@ Preferred communication style: Simple, everyday language.
 ✓ Updated discharge logic to only discharge what's needed for consumption minus PV
 ✓ Implemented relay increasing consumption by 10kW when ON
 ✓ Reorganized data table with Dutch labels: "Injectie Cost" and "Consumptie Cost"
+✓ Updated curtailment logic to only curtail excess PV to reach 0kW net consumption
+✓ Removed "Run Simulation" button - simulation runs automatically
+✓ Simplified tooltips to show only line values without decision data
 
 ## System Architecture
 

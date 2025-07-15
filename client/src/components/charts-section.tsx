@@ -106,20 +106,7 @@ export function ChartsSection({ data, currentSlot }: ChartsSectionProps) {
                         backgroundColor: colors[datasetIndex] || '#9CA3AF',
                       };
                     },
-                    afterBody: function(context: any) {
-                      const dataIndex = context[0].dataIndex;
-                      if (dataIndex < data.length && data[dataIndex]) {
-                        const point = data[dataIndex];
-                        return [
-                          '',
-                          `Decision: ${point.decision || 'hold'}`,
-                          `Relay State: ${point.relayState ? 'ON' : 'OFF'}`,
-                          `PV Curtailment: ${point.curtailment?.toFixed(1) || '0.0'} kW`,
-                          `Net Power: ${point.netPower?.toFixed(1) || '0.0'} kW`,
-                        ];
-                      }
-                      return [];
-                    }
+
                   }
                 },
               },
@@ -198,20 +185,7 @@ export function ChartsSection({ data, currentSlot }: ChartsSectionProps) {
                         backgroundColor: '#8B5CF6',
                       };
                     },
-                    afterBody: function(context: any) {
-                      const dataIndex = context[0].dataIndex;
-                      if (dataIndex < data.length && data[dataIndex]) {
-                        const point = data[dataIndex];
-                        return [
-                          '',
-                          `Decision: ${point.decision || 'hold'}`,
-                          `Battery Power: ${point.batteryPower?.toFixed(1) || '0.0'} kW`,
-                          `Net Power: ${point.netPower?.toFixed(1) || '0.0'} kW`,
-                          `Cost: €${point.cost?.toFixed(3) || '0.000'}`,
-                        ];
-                      }
-                      return [];
-                    }
+
                   }
                 },
                 annotation: {

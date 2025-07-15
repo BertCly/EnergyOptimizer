@@ -15,13 +15,12 @@ export function BatterySimulator() {
     generateFixedSimulationData(batteryConfigSchema.parse({}).initialSoc)
   );
   const [currentSlot, setCurrentSlot] = useState(47); // Show all data
-  const [isRunning, setIsRunning] = useState(false);
+
   const [totalCost, setTotalCost] = useState(0);
 
 
 
   const runFullSimulation = () => {
-    setIsRunning(true);
     setCurrentSlot(47);
     setTotalCost(0);
     
@@ -71,12 +70,6 @@ export function BatterySimulator() {
     
     setSimulationData(optimizedData);
     setTotalCost(totalCostAccumulator);
-    setIsRunning(false);
-  };
-
-  const startSimulation = runFullSimulation;
-  const stopSimulation = () => {
-    setIsRunning(false);
   };
 
   // Run simulation on component mount and when config changes
@@ -127,12 +120,6 @@ export function BatterySimulator() {
                 €{totalCost.toFixed(2)}
               </div>
             </div>
-            <Button
-              onClick={isRunning ? stopSimulation : startSimulation}
-              className="bg-blue-500 hover:bg-blue-600 text-white font-medium"
-            >
-              {isRunning ? 'Stop Simulation' : 'Run Simulation'}
-            </Button>
           </div>
         </div>
       </header>
@@ -157,7 +144,7 @@ export function BatterySimulator() {
             onDataChange={setSimulationData}
             onClearLog={handleClearLog}
             onExportData={handleExportData}
-            isSimulationRunning={isRunning}
+            isSimulationRunning={false}
           />
         </div>
       </div>

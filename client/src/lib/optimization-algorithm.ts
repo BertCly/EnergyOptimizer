@@ -27,9 +27,15 @@ export function controlCycle(
   decision.relayState = (pvOverproduction > 0 && current.soc >= config.maxSoc) ||
                         (current.consumptionPrice <= 0);
 
-  // PV Curtailment Logic - only when EPEX price is negative
+  // PV Curtailment Logic - curtail only excess to reach 0kW net consumption
   if (current.injectionPrice < 0) {
-    decision.curtailment = current.pvGeneration;
+    let effectiveConsumption = current.consumption;
+    if (decision.relayState) {
+      effectiveConsumption += 10;
+    }
+    
+    const excess = Math.max(0, current.pvGeneration - effectiveConsumption);
+    decision.curtailment = excess;
   }
 
   // Charging logic
