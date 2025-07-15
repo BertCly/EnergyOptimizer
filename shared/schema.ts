@@ -2,11 +2,11 @@ import { z } from "zod";
 
 // Battery Configuration Schema
 export const batteryConfigSchema = z.object({
-  batteryCapacity: z.number().min(10).max(1000).default(100),
-  maxChargeRate: z.number().min(1).max(100).default(25),
-  maxDischargeRate: z.number().min(1).max(100).default(25),
+  batteryCapacity: z.number().min(10).max(1000).default(200),
+  maxChargeRate: z.number().min(1).max(500).default(200),
+  maxDischargeRate: z.number().min(1).max(500).default(200),
   initialSoc: z.number().min(0).max(100).default(50),
-  minSoc: z.number().min(0).max(100).default(20),
+  minSoc: z.number().min(0).max(100).default(5),
   maxSoc: z.number().min(0).max(100).default(95),
   priceThreshold: z.number().min(0).max(1).default(0.30),
 });

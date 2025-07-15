@@ -8,15 +8,9 @@ import { BatteryConfig } from "@shared/schema";
 interface ConfigurationPanelProps {
   config: BatteryConfig;
   onConfigChange: (config: BatteryConfig) => void;
-  currentStatus: {
-    soc: number;
-    batteryPower: number;
-    currentPrice: number;
-    totalCost: number;
-  };
 }
 
-export function ConfigurationPanel({ config, onConfigChange, currentStatus }: ConfigurationPanelProps) {
+export function ConfigurationPanel({ config, onConfigChange }: ConfigurationPanelProps) {
   const updateConfig = (field: keyof BatteryConfig, value: number) => {
     onConfigChange({
       ...config,
@@ -211,29 +205,7 @@ export function ConfigurationPanel({ config, onConfigChange, currentStatus }: Co
         </CardContent>
       </Card>
 
-      <Card className="bg-gray-800 border-gray-700">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold text-gray-50">Current Status</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-300">Battery SoC</span>
-            <span className="text-sm font-medium text-emerald-400">{currentStatus.soc.toFixed(1)}%</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-300">Battery Power</span>
-            <span className="text-sm font-medium text-blue-400">{currentStatus.batteryPower.toFixed(1)} kW</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-300">Current Price</span>
-            <span className="text-sm font-medium text-amber-400">€{currentStatus.currentPrice.toFixed(3)}/kWh</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-300">Total Cost</span>
-            <span className="text-sm font-medium text-red-400">€{currentStatus.totalCost.toFixed(2)}</span>
-          </div>
-        </CardContent>
-      </Card>
+
     </div>
   );
 }

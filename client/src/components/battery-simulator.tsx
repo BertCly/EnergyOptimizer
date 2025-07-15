@@ -4,7 +4,7 @@ import { Zap } from "lucide-react";
 import { ConfigurationPanel } from "./configuration-panel";
 import { ChartsSection } from "./charts-section";
 import { EditableDataTable } from "./editable-data-table";
-import { ForecastingPanel } from "./forecasting-panel";
+
 import { BatteryConfig, SimulationDataPoint, batteryConfigSchema } from "@shared/schema";
 import { generateSimulationData } from "@/lib/data-generator";
 import { controlCycle } from "@/lib/optimization-algorithm";
@@ -14,88 +14,68 @@ export function BatterySimulator() {
   const [simulationData, setSimulationData] = useState<SimulationDataPoint[]>(() => 
     generateSimulationData(batteryConfigSchema.parse({}).initialSoc)
   );
-  const [currentSlot, setCurrentSlot] = useState(0);
+  const [currentSlot, setCurrentSlot] = useState(47); // Show all data
   const [isRunning, setIsRunning] = useState(false);
   const [totalCost, setTotalCost] = useState(0);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const currentStatus = {
-    soc: simulationData[currentSlot]?.soc || config.initialSoc,
-    batteryPower: simulationData[currentSlot]?.batteryPower || 0,
-    currentPrice: simulationData[currentSlot]?.price || 0,
-    totalCost,
-  };
 
-  const startSimulation = () => {
-    if (isRunning) return;
 
+  const runFullSimulation = () => {
     setIsRunning(true);
-    setCurrentSlot(0);
+    setCurrentSlot(47);
     setTotalCost(0);
     
     const data = generateSimulationData(config.initialSoc);
-    setSimulationData(data);
-
-    intervalRef.current = setInterval(() => {
-      setCurrentSlot(prev => {
-        const nextSlot = prev + 1;
-        if (nextSlot >= data.length) {
-          stopSimulation();
-          return prev;
-        }
-        return nextSlot;
-      });
-    }, 500);
+    const optimizedData = [...data];
+    let totalCostAccumulator = 0;
+    
+    // Run optimization for all slots
+    for (let slot = 0; slot < optimizedData.length; slot++) {
+      const current = optimizedData[slot];
+      
+      // Run optimization
+      const decision = controlCycle(slot, optimizedData, config);
+      
+      // Update battery decision
+      current.batteryPower = decision.batteryPower;
+      current.curtailment = decision.curtailment;
+      current.relayState = decision.relayState;
+      current.decision = decision.decision;
+      
+      // Calculate net power (positive = from grid, negative = to grid)
+      current.netPower = current.consumption - current.pvGeneration - current.batteryPower;
+      
+      // Calculate cost for this interval (15 minutes = 0.25 hours)
+      current.cost = Math.max(0, current.netPower) * current.price * 0.25;
+      
+      // Update SoC based on battery power
+      const energyChange = current.batteryPower * 0.25; // kWh for 15-min interval
+      const socChange = (energyChange / config.batteryCapacity) * 100;
+      current.soc = Math.max(config.minSoc, Math.min(config.maxSoc, current.soc + socChange));
+      
+      // Update next slot's initial SoC
+      if (slot < optimizedData.length - 1) {
+        optimizedData[slot + 1].soc = current.soc;
+      }
+      
+      // Accumulate total cost
+      totalCostAccumulator += current.cost;
+    }
+    
+    setSimulationData(optimizedData);
+    setTotalCost(totalCostAccumulator);
+    setIsRunning(false);
   };
 
+  const startSimulation = runFullSimulation;
   const stopSimulation = () => {
     setIsRunning(false);
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
   };
 
+  // Run simulation on component mount and when config changes
   useEffect(() => {
-    if (isRunning && currentSlot < simulationData.length && simulationData.length > 0) {
-      setSimulationData(prevData => {
-        const updatedData = [...prevData];
-        const current = updatedData[currentSlot];
-        
-        if (!current) return prevData;
-        
-        // Apply control cycle algorithm
-        const decision = controlCycle(currentSlot, updatedData, config);
-        
-        // Update battery power and control decisions
-        current.batteryPower = decision.batteryPower;
-        current.curtailment = decision.curtailment;
-        current.relayState = decision.relayState;
-        current.decision = decision.decision;
-        
-        // Calculate net power (positive = from grid, negative = to grid)
-        current.netPower = current.consumption - current.pvGeneration - current.batteryPower;
-        
-        // Calculate cost for this interval (15 minutes = 0.25 hours)
-        current.cost = Math.max(0, current.netPower) * current.price * 0.25;
-        
-        // Update SoC based on battery power
-        const energyChange = current.batteryPower * 0.25; // kWh for 15-min interval
-        const socChange = (energyChange / config.batteryCapacity) * 100;
-        current.soc = Math.max(config.minSoc, Math.min(config.maxSoc, current.soc + socChange));
-        
-        // Update next slot's initial SoC
-        if (currentSlot < updatedData.length - 1) {
-          updatedData[currentSlot + 1].soc = current.soc;
-        }
-        
-        // Update total cost
-        setTotalCost(prev => prev + current.cost);
-        
-        return updatedData;
-      });
-    }
-  }, [currentSlot, isRunning, config]);
+    runFullSimulation();
+  }, [config]);
 
   const handleExportData = () => {
     if (simulationData.length === 0) {
@@ -120,9 +100,7 @@ export function BatterySimulator() {
   };
 
   const handleClearLog = () => {
-    setSimulationData(generateSimulationData(config.initialSoc));
-    setCurrentSlot(0);
-    setTotalCost(0);
+    runFullSimulation();
   };
 
   return (
@@ -147,17 +125,15 @@ export function BatterySimulator() {
       </header>
 
       <div className="max-w-7xl mx-auto px-6 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-1 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1">
             <ConfigurationPanel
               config={config}
               onConfigChange={setConfig}
-              currentStatus={currentStatus}
             />
-            <ForecastingPanel data={simulationData} currentSlot={currentSlot} />
           </div>
 
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-2">
             <ChartsSection data={simulationData} currentSlot={currentSlot} />
           </div>
         </div>

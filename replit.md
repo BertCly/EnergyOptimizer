@@ -8,6 +8,17 @@ This is a battery energy management system simulator built with React and Expres
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (2025-01-15)
+
+✓ Updated default configuration values: battery capacity 200kWh, charge/discharge rate 200kW, min SoC 5%, max SoC 95%
+✓ Removed forecasting panel and current status display for cleaner interface
+✓ Changed simulation to run immediately without delays - all results shown instantly
+✓ Updated PV curtailment logic: only when EPEX price is negative
+✓ Updated relay control logic: activates when PV surplus + battery full OR price ≤ 0
+✓ Added matching tooltip colors for better chart readability
+✓ Fixed NODE_ENV requirement by setting default value in server
+✓ Replaced timed simulation with instant full optimization calculation
+
 ## System Architecture
 
 ### Frontend Architecture

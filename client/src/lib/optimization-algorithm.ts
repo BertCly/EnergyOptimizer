@@ -41,17 +41,15 @@ export function controlCycle(
     decision.decision = 'discharge';
   }
 
-  // Relay control logic - activate flexible loads when PV exceeds consumption and battery is full
-  if (current.pvGeneration > current.consumption && current.soc >= config.maxSoc) {
-    decision.relayState = true;
+  // PV Curtailment Logic - only when EPEX price is negative
+  if (current.price < 0) {
+    decision.curtailment = current.pvGeneration;
   }
-
-  // PV curtailment logic - limit PV if excess generation is too high
-  const predictedInjection = current.pvGeneration + decision.batteryPower - current.consumption;
-  const maxInject = 50; // Maximum injection to grid (kW)
-  if (predictedInjection > maxInject) {
-    decision.curtailment = predictedInjection - maxInject;
-  }
+  
+  // Relay Control Logic
+  const pvOverproduction = Math.max(0, current.pvGeneration - current.consumption);
+  decision.relayState = (pvOverproduction > 0 && current.soc >= config.maxSoc) || 
+                        (current.price <= 0);
 
   return decision;
 }

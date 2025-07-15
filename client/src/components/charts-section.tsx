@@ -96,6 +96,14 @@ export function ChartsSection({ data, currentSlot }: ChartsSectionProps) {
                   borderColor: '#6B7280',
                   borderWidth: 1,
                   callbacks: {
+                    labelColor: function(context: any) {
+                      const datasetIndex = context.datasetIndex;
+                      const colors = ['#F59E0B', '#EF4444', '#10B981', '#6EE7B7', '#3B82F6'];
+                      return {
+                        borderColor: colors[datasetIndex] || '#9CA3AF',
+                        backgroundColor: colors[datasetIndex] || '#9CA3AF',
+                      };
+                    },
                     afterBody: function(context: any) {
                       const dataIndex = context[0].dataIndex;
                       if (dataIndex < data.length && data[dataIndex]) {
