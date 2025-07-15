@@ -8,6 +8,7 @@ export const batteryConfigSchema = z.object({
   initialSoc: z.number().min(0).max(100).default(50),
   minSoc: z.number().min(0).max(100).default(5),
   maxSoc: z.number().min(0).max(100).default(95),
+  relayConsumption: z.number().min(0).default(10),
 });
 
 // Simulation Data Point Schema

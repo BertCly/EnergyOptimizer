@@ -26,6 +26,9 @@ Preferred communication style: Simple, everyday language.
 ✓ Updated curtailment logic to only curtail excess PV to reach 0kW net consumption
 ✓ Removed "Run Simulation" button - simulation runs automatically
 ✓ Simplified tooltips to show only line values without decision data
+✓ Added configurable relay consumption input field (default 10kW)
+✓ Fixed effective consumption calculation for curtailment (consumption + battery power)
+✓ Enhanced auto-run simulation on page load with double useEffect
 
 ## System Architecture
 
