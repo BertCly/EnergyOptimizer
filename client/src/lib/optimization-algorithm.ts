@@ -110,19 +110,29 @@ function shouldChargeNow(
   config: BatteryConfig,
   forecast: SimulationDataPoint[]
 ): { power: number; reason: string } {
+  const pvSurplus = current.pvGeneration - current.consumption;
+  if (pvSurplus > 0 && current.soc < config.maxSoc) {
+    return {
+      power: Math.min(pvSurplus, config.maxChargeRate),
+      reason: 'pv surplus',
+    };
+  }
+
+  const futureDeficit = forecast
+    .slice(0, 16)
+    .some((slot, i) =>
+      cheapestSlots.includes(currentSlot + i) && slot.pvForecast < slot.consumption
+    );
+
+  if (!futureDeficit) {
+    return { power: 0, reason: 'no future deficit' };
+  }
+
   if (!cheapestSlots.includes(currentSlot)) {
     return { power: 0, reason: 'not cheapest slot' };
   }
   if (current.soc >= config.maxSoc) {
     return { power: 0, reason: 'battery full' };
-  }
-
-  const futureDeficit = forecast
-    .slice(0, 8)
-    .reduce((sum, slot) => sum + Math.max(0, slot.consumption - slot.pvForecast), 0);
-
-  if (futureDeficit <= 0) {
-    return { power: 0, reason: 'no future deficit' };
   }
 
   return { power: config.maxChargeRate, reason: 'cheap energy available' };
