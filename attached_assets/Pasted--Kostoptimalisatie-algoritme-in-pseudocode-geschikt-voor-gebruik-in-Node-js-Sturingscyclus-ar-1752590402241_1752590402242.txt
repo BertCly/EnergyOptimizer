@@ -1,0 +1,173 @@
+// Kostoptimalisatie-algoritme in pseudocode
+
+// (geschikt voor gebruik in Node.js Sturingscyclus-architectuur met delayed execution)
+
+
+
+function controlCycle(currentTime) {
+
+  // INPUTS
+
+  let netPower = getNetPower(); // +afname, -injectie
+
+  let pvPower = getPvPower();
+
+  let siteConsumption = getSiteConsumption();
+
+  let soc = getBatterySoc();
+
+  let batteryLimits = getBatteryLimits();
+
+  let batteryStatus = getBatteryStatus();
+
+  let priceForecast = getPriceForecast();     // array perkwartier
+
+  let pvForecast = getPvForecast();           // idem formaat
+
+  let netLimits = getSiteNetLimits();         // maxInject/maxOfftake
+
+  let config = getSiteConfig();
+
+  let consumptionPattern = getConsumptionForecast(); // voorspeld verbruik per kwartier
+
+
+
+  // BEREKEN HUIDIG SLOT EN VOORSPELLINGEN
+
+  let horizon = 12; // aantal komende slots (kwartieren)
+
+  let forecast = getForecastHorizon(currentTime, horizon, priceForecast, pvForecast, consumptionPattern);
+
+
+
+  // SIMULEER BESLUIT OVER KOMENDE CYCLUS
+
+  let decision = {
+
+    batteryPower: 0,
+
+    relayStates: {},
+
+    curtailment: 0
+
+  };
+
+
+
+  let cheapestSlots = getCheapestChargeSlots(forecast, soc, config, consumptionPattern);
+
+  let mostExpensiveSlots = getBestDischargeSlots(forecast, soc, config, consumptionPattern);
+
+
+
+  if (shouldChargeNow(currentTime, cheapestSlots, soc, config, consumptionPattern)) {
+
+    decision.batteryPower = Math.min(
+
+      batteryLimits.maxCharge,
+
+      netLimits.maxOfftake - netPower,
+
+      config.maxChargeRate
+
+    );
+
+  } else if (shouldDischargeNow(currentTime, mostExpensiveSlots, soc, config, consumptionPattern)) {
+
+    decision.batteryPower = -Math.min(
+
+      batteryLimits.maxDischarge,
+
+      netPower + netLimits.maxInject,
+
+      config.maxDischargeRate
+
+    );
+
+  }
+
+
+
+  // RELAIS STURING
+
+  if (pvPower > siteConsumption && soc >= config.maxSoc) {
+
+    decision.relayStates = enableFlexibleLoads();
+
+  } else if (netPower > netLimits.maxOfftake) {
+
+    decision.relayStates = disableFlexibleLoads();
+
+  }
+
+
+
+  // PV AFSCHALING
+
+  let predictedInjection = pvPower + decision.batteryPower - siteConsumption;
+
+  if (predictedInjection < -netLimits.maxInject) {
+
+    decision.curtailment = -netLimits.maxInject - predictedInjection;
+
+  }
+
+
+
+  // SLA PLAN OP VOOR TOEPASSING IN VOLGENDE CYCLUS
+
+  controlPlan = {
+
+    nextBatteryPower: decision.batteryPower,
+
+    nextRelayStates: decision.relayStates,
+
+    pvCurtailment: decision.curtailment
+
+  };
+
+}
+
+
+
+// Bepaal of laden nu aangewezen is op basis van prijshorizon en SOC
+
+function shouldChargeNow(currentTime, cheapestSlots, soc, config, consumptionPattern) {
+
+  let currentSlot = getTimeSlotIndex(currentTime); // bijv. kwartierindex 0-95
+
+
+
+  // Als we binnen de goedkopere slots zitten en batterij is niet vol
+
+  if (cheapestSlots.includes(currentSlot) && soc < config.maxSoc) {
+
+    // Extra: kijk of verbruik voorspeld wordt later => batterij nu laden
+
+    let futureLoad = getExpectedConsumption(currentSlot + 4, consumptionPattern); // over 1 uur
+
+    if (futureLoad > config.averageLoadThreshold) {
+
+      return true; // laad nu om straks te kunnen leveren
+
+    }
+
+    return true;
+
+  }
+
+
+
+  return false;
+
+}
+
+
+
+
+
+
+
+// Hulpfuncties zoals getCheapestChargeSlots, shouldChargeNow, ... worden elders gedefinieerd.
+
+// Nieuw: consumptionPattern wordt meegegeven bij beslissingen om rekening te houden met typisch siteverbruik.
