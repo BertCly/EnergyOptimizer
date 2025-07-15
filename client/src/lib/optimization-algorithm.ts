@@ -14,6 +14,7 @@ export function controlCycle(
   // Find cheapest and most expensive slots
   const cheapestSlots = getCheapestChargeSlots(forecast, current.soc, config);
   const mostExpensiveSlots = getBestDischargeSlots(forecast, current.soc, config);
+  // console.log('Goedkoopste tijdslots:', cheapestSlots);
 
   let decision: ControlDecision = {
     batteryPower: 0,
@@ -52,10 +53,10 @@ export function controlCycle(
     if (dischargeDecision.power > 0) {
       decision.batteryPower = -dischargeDecision.power;
       decision.decision = 'discharge';
-      decision.reason = dischargeDecision.reason;
+      decision.reason = `Charge decision: ${chargeDecision.reason}\nDischarge decision: ${dischargeDecision.reason}`;
     } else {
       // when holding, pick reason from dischargeDecision or chargeDecision
-      decision.reason = dischargeDecision.reason || chargeDecision.reason;
+      decision.reason = `Charge decision: ${chargeDecision.reason}\nDischarge decision: ${dischargeDecision.reason}`;
     }
   }
 
@@ -72,9 +73,9 @@ function getCheapestChargeSlots(
   const sortedSlots = forecast
     .map((slot, index) => ({
       index,
-      price: slot.price,
+      consumptionPrice: slot.consumptionPrice,
     }))
-    .sort((a, b) => a.price - b.price);
+    .sort((a, b) => a.consumptionPrice - b.consumptionPrice);
 
   // Return indices of cheapest 25% of slots
   const numSlots = Math.ceil(sortedSlots.length * 0.25);
@@ -91,9 +92,9 @@ function getBestDischargeSlots(
   const sortedSlots = forecast
     .map((slot, index) => ({
       index,
-      price: slot.price,
+      injectionPrice: slot.injectionPrice,
     }))
-    .sort((a, b) => b.price - a.price);
+    .sort((a, b) => b.injectionPrice - a.injectionPrice);
 
   // Return indices of most expensive 25% of slots
   const numSlots = Math.ceil(sortedSlots.length * 0.25);

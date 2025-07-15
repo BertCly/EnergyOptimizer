@@ -14,7 +14,7 @@ export const FIXED_SIMULATION_DATA = {
     16: { injection: -0.020, consumption: 0.092 },
     17: { injection: 0.038, consumption: 0.155 },
     18: { injection: 0.049, consumption: 0.168 },
-    19: { injection: 0.062, consumption: 0.184 },
+    19: { injection: 0.062, consumption: 0.004 },
     20: { injection: 0.075, consumption: 0.200 },
     21: { injection: 0.092, consumption: 0.221 },
     22: { injection: 0.083, consumption: 0.210 },
