@@ -26,14 +26,6 @@ export function DataTable({ data, currentSlot, onClearLog, onExportData }: DataT
             >
               Export Data
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onClearLog}
-              className="bg-gray-600 hover:bg-gray-700 border-gray-600 text-gray-50"
-            >
-              Clear Log
-            </Button>
           </div>
         </div>
       </CardHeader>
