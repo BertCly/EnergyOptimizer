@@ -122,7 +122,7 @@ export function EditableDataTable({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto max-h-96">
+        <div className="overflow-x-auto max-h-[40rem]">
           <table className="w-full text-sm">
             <thead className="border-b border-gray-700 sticky top-0 bg-gray-800">
               <tr className="text-left">
