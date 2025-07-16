@@ -33,7 +33,14 @@ export function controlCycle(
   }
   // Discharging logic
   else {
-    const dischargeDecision = shouldDischargeNow(currentSlot, mostExpensiveSlots, current, config, decision.relayState);
+    const dischargeDecision = shouldDischargeNow(
+      currentSlot,
+      mostExpensiveSlots,
+      current,
+      config,
+      decision.relayState,
+      forecast
+    );
     if (dischargeDecision.power > 0) {
       decision.batteryPower = -dischargeDecision.power;
       decision.decision = 'discharge';
@@ -80,8 +87,12 @@ export function controlCycle(
 
   decision.relayState = relay;
 
-  // PV Curtailment Logic - curtail only excess to reach 0kW net consumption
-  if (current.injectionPrice < 0) {
+  // PV Curtailment Logic
+  if (current.consumptionPrice < 0) {
+    // Negative consumption price: curtail all PV to maximize grid offtake
+    decision.curtailment = current.pvGeneration;
+  } else if (current.injectionPrice < 0) {
+    // Negative injection price: only curtail excess to avoid injecting
     let effectiveConsumption = current.consumption + decision.batteryPower;
     if (decision.relayState) {
       effectiveConsumption += config.relayNominalPower;
@@ -191,7 +202,8 @@ function shouldDischargeNow(
   mostExpensiveSlots: number[],
   current: SimulationDataPoint,
   config: BatteryConfig,
-  relayState: boolean
+  relayState: boolean,
+  forecast: SimulationDataPoint[]
 ): { power: number; reason: string } {
   if (!mostExpensiveSlots.includes(currentSlot)) {
     return { power: 0, reason: 'not expensive slot' };
@@ -214,6 +226,25 @@ function shouldDischargeNow(
     return { power: 0, reason: 'no deficit to cover' };
   }
 
-  // Only discharge what's actually needed, up to max discharge rate
-  return { power: Math.min(deficit, config.maxDischargeRate), reason: 'cover consumption' };
+  // Determine energy that must remain for upcoming expensive consumption
+  const futureNeed = forecast.slice(1, 13).reduce((sum, slot) => {
+    if (slot.consumptionPrice > current.injectionPrice) {
+      const d = Math.max(0, slot.consumption - slot.pvForecast);
+      return sum + d * 0.25;
+    }
+    return sum;
+  }, 0);
+
+  const socEnergy = (current.soc / 100) * config.batteryCapacity;
+  const minEnergy = (config.minSoc / 100) * config.batteryCapacity;
+  const allowedEnergy = socEnergy - minEnergy - futureNeed;
+
+  const maxPower = Math.min(deficit, config.maxDischargeRate, allowedEnergy / 0.25);
+
+  if (maxPower <= 0) {
+    return { power: 0, reason: 'reserve for future expensive consumption' };
+  }
+
+  // Only discharge what's actually needed, up to allowed power
+  return { power: maxPower, reason: 'cover consumption' };
 }
