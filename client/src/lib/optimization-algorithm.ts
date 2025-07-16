@@ -8,12 +8,12 @@ export function controlCycle(
   const current = data[currentSlot];
   const horizon = Math.min(12, data.length - currentSlot); // 12 slots or remaining slots
 
-  // Get forecast data
-  const forecast = data.slice(currentSlot, currentSlot + horizon);
+  // Get forecastData data
+  const forecastData = data.slice(currentSlot, currentSlot + horizon);
 
   // Find cheapest and most expensive slots
-  const cheapestSlots = getCheapestChargeSlots(forecast, current.soc, config, currentSlot);
-  const mostExpensiveSlots = getBestDischargeSlots(forecast, current.soc, config, currentSlot);
+  const cheapestSlots = getCheapestChargeSlots(forecastData, current.soc, config, currentSlot);
+  const mostExpensiveSlots = getBestDischargeSlots(forecastData, current.soc, config, currentSlot);
   // console.log('Goedkoopste tijdslots:', cheapestSlots);
 
   let decision: ControlDecision = {
@@ -25,7 +25,7 @@ export function controlCycle(
   };
 
   // Charging logic
-  const chargeDecision = shouldChargeNow(currentSlot, cheapestSlots, current, config, forecast);
+  const chargeDecision = shouldChargeNow(currentSlot, cheapestSlots, current, config, forecastData);
   if (chargeDecision.power > 0) {
     decision.batteryPower = chargeDecision.power;
     decision.decision = 'charge';
@@ -39,7 +39,7 @@ export function controlCycle(
       current,
       config,
       decision.relayState,
-      forecast
+      forecastData
     );
     if (dischargeDecision.power > 0) {
       decision.batteryPower = -dischargeDecision.power;
@@ -75,14 +75,14 @@ export function controlCycle(
 }
 
 function getCheapestChargeSlots(
-  forecast: SimulationDataPoint[],
+  forecastData: SimulationDataPoint[],
   currentSoc: number,
   config: BatteryConfig,
   startIndex: number
 ): number[] {
   if (currentSoc >= config.maxSoc) return [];
 
-  const sortedSlots = forecast
+  const sortedSlots = forecastData
     .map((slot, index) => ({
       index: index + startIndex,
       consumptionPrice: slot.consumptionPrice,
@@ -95,14 +95,14 @@ function getCheapestChargeSlots(
 }
 
 function getBestDischargeSlots(
-  forecast: SimulationDataPoint[],
+  forecastData: SimulationDataPoint[],
   currentSoc: number,
   config: BatteryConfig,
   startIndex: number
 ): number[] {
   if (currentSoc <= config.minSoc) return [];
 
-  const sortedSlots = forecast
+  const sortedSlots = forecastData
     .map((slot, index) => ({
       index: index + startIndex,
       injectionPrice: slot.injectionPrice,
@@ -119,18 +119,18 @@ function shouldChargeNow(
   cheapestSlots: number[],
   current: SimulationDataPoint,
   config: BatteryConfig,
-  forecast: SimulationDataPoint[]
+  forecastData: SimulationDataPoint[]
 ): { power: number; reason: string } {
    if (current.soc >= config.maxSoc) {
     return { power: 0, reason: 'battery full' };
   }
 
-  // const futureDeficit = forecast
+  // const futureDeficit = forecastData
   //   .slice(0, 16)
   //   .some((slot, i) =>
   //     cheapestSlots.includes(currentSlot + i) && slot.pvForecast < slot.consumption
   //   );
-   const futureDeficit = forecast
+   const futureDeficit = forecastData
   .slice(0, 16)
   .reduce((total, slot, i) => {
     const globalIndex = currentSlot + i;
@@ -172,7 +172,7 @@ function shouldDischargeNow(
   current: SimulationDataPoint,
   config: BatteryConfig,
   relayState: boolean,
-  forecast: SimulationDataPoint[]
+  forecastData: SimulationDataPoint[]
 ): { power: number; reason: string } {
   if (!mostExpensiveSlots.includes(currentSlot)) {
     return { power: 0, reason: 'not expensive slot' };
@@ -196,7 +196,7 @@ function shouldDischargeNow(
   }
 
   // Determine energy that must remain for upcoming expensive consumption
-  const futureNeed = forecast.slice(1, 13).reduce((sum, slot) => {
+  const futureNeed = forecastData.slice(1, 13).reduce((sum, slot) => {
     if (slot.consumptionPrice > current.injectionPrice) {
       const d = Math.max(0, slot.consumption - slot.pvForecast);
       return sum + d * 0.25;
