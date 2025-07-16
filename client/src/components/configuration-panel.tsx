@@ -206,7 +206,7 @@ export function ConfigurationPanel({ config, onConfigChange }: ConfigurationPane
 
       <Card className="bg-gray-800 border-gray-700">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold text-gray-50">Relay Settings</CardTitle>
+          <CardTitle className="text-lg font-semibold text-gray-50">Controllable load</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
