@@ -6,7 +6,7 @@ export function controlCycle(
   config: BatteryConfig
 ): ControlDecision {
   const current = data[currentSlot];
-  const horizon = Math.min(12, data.length - currentSlot); // 12 slots or remaining slots
+  const horizon = Math.min(48, data.length - currentSlot); // 48 slots (12h) lookahead
 
   // Get forecast data
   const forecast = data.slice(currentSlot, currentSlot + horizon);
@@ -45,15 +45,46 @@ export function controlCycle(
   }
 
    // Relay Control Logic - determine first as it affects consumption
-  const pvOverproduction = Math.max(0, current.pvGeneration - current.consumption);
-  decision.relayState = (pvOverproduction > 0 && current.soc >= config.maxSoc) ||
-                        (current.consumptionPrice <= 0);
+  const prevRelay = currentSlot > 0 ? data[currentSlot - 1].relayState : false;
+  let activationRuntime = 0;
+  if (prevRelay) {
+    for (let i = currentSlot - 1; i >= 0 && data[i].relayState; i--) {
+      activationRuntime += 0.25;
+    }
+  }
+  let dailyRuntime = 0;
+  for (let i = 0; i < currentSlot; i++) {
+    if (data[i].relayState) dailyRuntime += 0.25;
+  }
+
+  const oversupply = current.pvGeneration - current.consumption - Math.max(decision.batteryPower, 0);
+  const gridImport = Math.max(0, current.consumption + Math.max(decision.batteryPower,0) - current.pvGeneration);
+  const needDailyRuntime = current.time.getHours() >= config.relayRuntimeDeadlineHour &&
+                           dailyRuntime < config.relayMinRuntimeDaily;
+
+  let relay = prevRelay;
+  if (relay) {
+    activationRuntime += 0.25;
+    if (activationRuntime >= config.relayMinRuntimeActivation && !needDailyRuntime) {
+      if (config.relayActivationPower >= config.relayNominalPower) {
+        if (oversupply < config.relayNominalPower) relay = false;
+      } else {
+        if (gridImport > (config.relayNominalPower - config.relayActivationPower)) relay = false;
+      }
+    }
+  } else {
+    if (oversupply >= config.relayActivationPower || needDailyRuntime) {
+      relay = true;
+    }
+  }
+
+  decision.relayState = relay;
 
   // PV Curtailment Logic - curtail only excess to reach 0kW net consumption
   if (current.injectionPrice < 0) {
     let effectiveConsumption = current.consumption + decision.batteryPower;
     if (decision.relayState) {
-      effectiveConsumption += config.relayConsumption;
+      effectiveConsumption += config.relayNominalPower;
     }
 
     const excess = Math.max(0, current.pvGeneration - effectiveConsumption);
@@ -174,7 +205,7 @@ function shouldDischargeNow(
   
   // Add relay consumption when relay is ON
   if (relayState) {
-    effectiveConsumption += config.relayConsumption;
+    effectiveConsumption += config.relayNominalPower;
   }
   
   const deficit = Math.max(0, effectiveConsumption - current.pvGeneration);

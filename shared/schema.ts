@@ -9,6 +9,11 @@ export const batteryConfigSchema = z.object({
   minSoc: z.number().min(0).max(100).default(5),
   maxSoc: z.number().min(0).max(100).default(95),
   relayConsumption: z.number().min(0).default(10),
+  relayMinRuntimeActivation: z.number().min(0).default(0.5),
+  relayMinRuntimeDaily: z.number().min(0).default(2),
+  relayRuntimeDeadlineHour: z.number().min(0).max(23).default(20),
+  relayActivationPower: z.number().min(0).default(5),
+  relayNominalPower: z.number().min(0).default(10),
 });
 
 // Simulation Data Point Schema

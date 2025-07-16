@@ -11,20 +11,19 @@ import { controlCycle } from "@/lib/optimization-algorithm";
 
 export function BatterySimulator() {
   const [config, setConfig] = useState<BatteryConfig>(batteryConfigSchema.parse({}));
-  const [simulationData, setSimulationData] = useState<SimulationDataPoint[]>(() => 
-    generateFixedSimulationData(batteryConfigSchema.parse({}).initialSoc)
-  );
-  const [currentSlot, setCurrentSlot] = useState(47); // Show all data
+  const initialData = generateFixedSimulationData(batteryConfigSchema.parse({}).initialSoc);
+  const [simulationData, setSimulationData] = useState<SimulationDataPoint[]>(initialData);
+  const [currentSlot, setCurrentSlot] = useState(initialData.length - 1); // Show all data
 
   const [totalCost, setTotalCost] = useState(0);
 
 
 
   const runFullSimulation = () => {
-    setCurrentSlot(47);
-    setTotalCost(0);
-    
     const data = generateFixedSimulationData(config.initialSoc);
+    setCurrentSlot(data.length - 1);
+    setTotalCost(0);
+
     const optimizedData = [...data];
     let totalCostAccumulator = 0;
     
@@ -42,10 +41,10 @@ export function BatterySimulator() {
       current.decision = decision.decision;
       current.reason = decision.reason;
       
-      // Account for relay increasing consumption by 10kW when ON
+      // Account for relay increasing consumption by configured power when ON
       let effectiveConsumption = current.consumption;
       if (current.relayState) {
-        effectiveConsumption += 10;
+        effectiveConsumption += config.relayNominalPower;
       }
       
       // Calculate net power (positive = from grid, negative = to grid)

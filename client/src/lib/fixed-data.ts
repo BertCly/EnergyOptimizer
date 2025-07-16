@@ -3,6 +3,14 @@ import { SimulationDataPoint } from "@shared/schema";
 // Fixed data that won't change when configuration is adjusted
 export const FIXED_SIMULATION_DATA = {
   prices: {
+    0: { injection: 0.050, consumption: 0.150 },
+    1: { injection: 0.045, consumption: 0.140 },
+    2: { injection: 0.040, consumption: 0.130 },
+    3: { injection: 0.035, consumption: 0.120 },
+    4: { injection: 0.030, consumption: 0.110 },
+    5: { injection: 0.025, consumption: 0.105 },
+    6: { injection: -0.125, consumption: -0.016 },
+    7: { injection: -0.115, consumption: -0.006 },
     8: { injection: 0.050, consumption: 0.150 },
     9: { injection: 0.045, consumption: 0.140 },
     10: { injection: 0.040, consumption: 0.130 },
@@ -54,22 +62,22 @@ export function generateFixedSimulationData(initialSoc: number): SimulationDataP
   const startTime = new Date();
   startTime.setHours(8, 0, 0, 0); // Start at 8:00 AM
 
-  for (let i = 0; i < 48; i++) {
+  for (let i = 0; i < 96; i++) {
     const time = new Date(startTime.getTime() + i * 15 * 60 * 1000);
     const hour = time.getHours();
-    
+
     // Get fixed price data
-    const pricePair = FIXED_SIMULATION_DATA.prices[hour as keyof typeof FIXED_SIMULATION_DATA.prices] || 
+    const pricePair = FIXED_SIMULATION_DATA.prices[hour as keyof typeof FIXED_SIMULATION_DATA.prices] ||
                       { injection: 0.050, consumption: 0.150 };
-    
+
     data.push({
       time,
       timeString: time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
       injectionPrice: pricePair.injection,
       consumptionPrice: pricePair.consumption,
-      consumption: FIXED_SIMULATION_DATA.consumption[i],
-      pvGeneration: FIXED_SIMULATION_DATA.pvGeneration[i],
-      pvForecast: FIXED_SIMULATION_DATA.pvForecast[i],
+      consumption: FIXED_SIMULATION_DATA.consumption[i % 48],
+      pvGeneration: FIXED_SIMULATION_DATA.pvGeneration[i % 48],
+      pvForecast: FIXED_SIMULATION_DATA.pvForecast[i % 48],
       batteryPower: 0,
       soc: initialSoc,
       netPower: 0,
