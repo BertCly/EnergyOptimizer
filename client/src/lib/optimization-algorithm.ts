@@ -24,22 +24,6 @@ export function controlCycle(
     reason: '',
   };
 
-  // Relay Control Logic - determine first as it affects consumption
-  const pvOverproduction = Math.max(0, current.pvGeneration - current.consumption);
-  decision.relayState = (pvOverproduction > 0 && current.soc >= config.maxSoc) ||
-                        (current.consumptionPrice <= 0);
-
-  // PV Curtailment Logic - curtail only excess to reach 0kW net consumption
-  if (current.injectionPrice < 0) {
-    let effectiveConsumption = current.consumption + decision.batteryPower;
-    if (decision.relayState) {
-      effectiveConsumption += config.relayConsumption;
-    }
-    
-    const excess = Math.max(0, current.pvGeneration - effectiveConsumption);
-    decision.curtailment = excess;
-  }
-
   // Charging logic
   const chargeDecision = shouldChargeNow(currentSlot, cheapestSlots, current, config, forecast);
   if (chargeDecision.power > 0) {
@@ -58,6 +42,22 @@ export function controlCycle(
       // when holding, pick reason from dischargeDecision or chargeDecision
       decision.reason = `Charge decision: ${chargeDecision.reason}\nDischarge decision: ${dischargeDecision.reason}`;
     }
+  }
+
+   // Relay Control Logic - determine first as it affects consumption
+  const pvOverproduction = Math.max(0, current.pvGeneration - current.consumption);
+  decision.relayState = (pvOverproduction > 0 && current.soc >= config.maxSoc) ||
+                        (current.consumptionPrice <= 0);
+
+  // PV Curtailment Logic - curtail only excess to reach 0kW net consumption
+  if (current.injectionPrice < 0) {
+    let effectiveConsumption = current.consumption + decision.batteryPower;
+    if (decision.relayState) {
+      effectiveConsumption += config.relayConsumption;
+    }
+
+    const excess = Math.max(0, current.pvGeneration - effectiveConsumption);
+    decision.curtailment = excess;
   }
 
   return decision;
@@ -110,29 +110,46 @@ function shouldChargeNow(
   config: BatteryConfig,
   forecast: SimulationDataPoint[]
 ): { power: number; reason: string } {
+   if (current.soc >= config.maxSoc) {
+    return { power: 0, reason: 'battery full' };
+  }
+
+  // const futureDeficit = forecast
+  //   .slice(0, 16)
+  //   .some((slot, i) =>
+  //     cheapestSlots.includes(currentSlot + i) && slot.pvForecast < slot.consumption
+  //   );
+   const futureDeficit = forecast
+  .slice(0, 16)
+  .reduce((total, slot, i) => {
+    const globalIndex = currentSlot + i;
+
+    if (!cheapestSlots.includes(globalIndex)) return total;
+
+    const deficit = slot.consumption - slot.pvForecast;
+    return total + Math.max(0, deficit); // enkel positieve tekorten optellen
+  }, 0);
+  if (futureDeficit > 0) {
+    return {
+      power: Math.min(futureDeficit / 0.25, config.maxChargeRate),
+      reason: `Laad bij voor toekomstig tekort van ${futureDeficit.toFixed(2)} kWh (saldo komende 4 uur)`
+    };
+  }
+
+
   const pvSurplus = current.pvGeneration - current.consumption;
-  if (pvSurplus > 0 && current.soc < config.maxSoc) {
+  if (pvSurplus > 0) {
     return {
       power: Math.min(pvSurplus, config.maxChargeRate),
       reason: 'pv surplus',
     };
   }
 
-  const futureDeficit = forecast
-    .slice(0, 16)
-    .some((slot, i) =>
-      cheapestSlots.includes(currentSlot + i) && slot.pvForecast < slot.consumption
-    );
-
-  if (!futureDeficit) {
-    return { power: 0, reason: 'no future deficit' };
-  }
-
   if (!cheapestSlots.includes(currentSlot)) {
-    return { power: 0, reason: 'not cheapest slot' };
+    return { power: 0, reason: 'not cheap slot, no pv surplus' };
   }
-  if (current.soc >= config.maxSoc) {
-    return { power: 0, reason: 'battery full' };
+  if (!futureDeficit) {
+    return { power: 0, reason: 'no future deficit, no pv surplus' };
   }
 
   return { power: config.maxChargeRate, reason: 'cheap energy available' };
