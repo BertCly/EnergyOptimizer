@@ -226,7 +226,7 @@ function shouldDischargeNow(
     return { power: 0, reason: 'no deficit to cover' };
   }
 
-  // Determine energy that must remain for upcoming expensive consumption
+  // Determine energy that must remain for upcoming expensive consumption (3 hours)
   const futureNeed = forecast.slice(1, 13).reduce((sum, slot) => {
     if (slot.consumptionPrice > current.injectionPrice) {
       const d = Math.max(0, slot.consumption - slot.pvForecast);
