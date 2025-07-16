@@ -203,6 +203,82 @@ export function ConfigurationPanel({ config, onConfigChange }: ConfigurationPane
           </div>
         </CardContent>
       </Card>
+
+      <Card className="bg-gray-800 border-gray-700">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold text-gray-50">Relay Settings</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="relayActivationPower" className="text-sm font-medium text-gray-300">
+              Activation Power (kW)
+            </Label>
+            <Input
+              id="relayActivationPower"
+              type="number"
+              min="0"
+              value={config.relayActivationPower}
+              onChange={(e) => updateConfig('relayActivationPower', parseFloat(e.target.value))}
+              className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <Label htmlFor="relayNominalPower" className="text-sm font-medium text-gray-300">
+              Nominal Power (kW)
+            </Label>
+            <Input
+              id="relayNominalPower"
+              type="number"
+              min="0"
+              value={config.relayNominalPower}
+              onChange={(e) => updateConfig('relayNominalPower', parseFloat(e.target.value))}
+              className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <Label htmlFor="relayMinRuntimeActivation" className="text-sm font-medium text-gray-300">
+              Min Runtime per Activation (h)
+            </Label>
+            <Input
+              id="relayMinRuntimeActivation"
+              type="number"
+              min="0"
+              step="0.25"
+              value={config.relayMinRuntimeActivation}
+              onChange={(e) => updateConfig('relayMinRuntimeActivation', parseFloat(e.target.value))}
+              className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <Label htmlFor="relayMinRuntimeDaily" className="text-sm font-medium text-gray-300">
+              Min Runtime per Day (h)
+            </Label>
+            <Input
+              id="relayMinRuntimeDaily"
+              type="number"
+              min="0"
+              step="0.25"
+              value={config.relayMinRuntimeDaily}
+              onChange={(e) => updateConfig('relayMinRuntimeDaily', parseFloat(e.target.value))}
+              className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <Label htmlFor="relayRuntimeDeadlineHour" className="text-sm font-medium text-gray-300">
+              Runtime Deadline Hour
+            </Label>
+            <Input
+              id="relayRuntimeDeadlineHour"
+              type="number"
+              min="0"
+              max="23"
+              value={config.relayRuntimeDeadlineHour}
+              onChange={(e) => updateConfig('relayRuntimeDeadlineHour', parseFloat(e.target.value))}
+              className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

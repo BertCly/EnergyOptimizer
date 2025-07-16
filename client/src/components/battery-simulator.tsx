@@ -6,30 +6,32 @@ import { ChartsSection } from "./charts-section";
 import { EditableDataTable } from "./editable-data-table";
 
 import { BatteryConfig, SimulationDataPoint, batteryConfigSchema } from "@shared/schema";
-import { generateFixedSimulationData } from "@/lib/fixed-data";
+import { generateFixedSimulationData, SIMULATION_SLOTS, TOTAL_SLOTS } from "@/lib/fixed-data";
 import { controlCycle } from "@/lib/optimization-algorithm";
 
 export function BatterySimulator() {
   const [config, setConfig] = useState<BatteryConfig>(batteryConfigSchema.parse({}));
-  const [simulationData, setSimulationData] = useState<SimulationDataPoint[]>(() => 
-    generateFixedSimulationData(batteryConfigSchema.parse({}).initialSoc)
+  const initialData = generateFixedSimulationData(
+    batteryConfigSchema.parse({}).initialSoc,
+    TOTAL_SLOTS
   );
-  const [currentSlot, setCurrentSlot] = useState(47); // Show all data
+  const [simulationData, setSimulationData] = useState<SimulationDataPoint[]>(initialData);
+  const [currentSlot, setCurrentSlot] = useState(SIMULATION_SLOTS - 1);
 
   const [totalCost, setTotalCost] = useState(0);
 
 
 
   const runFullSimulation = () => {
-    setCurrentSlot(47);
+    const data = generateFixedSimulationData(config.initialSoc, TOTAL_SLOTS);
+    setCurrentSlot(SIMULATION_SLOTS - 1);
     setTotalCost(0);
-    
-    const data = generateFixedSimulationData(config.initialSoc);
+
     const optimizedData = [...data];
     let totalCostAccumulator = 0;
-    
-    // Run optimization for all slots
-    for (let slot = 0; slot < optimizedData.length; slot++) {
+
+    // Run optimization only over simulation horizon
+    for (let slot = 0; slot < SIMULATION_SLOTS; slot++) {
       const current = optimizedData[slot];
       
       // Run optimization
@@ -42,10 +44,10 @@ export function BatterySimulator() {
       current.decision = decision.decision;
       current.reason = decision.reason;
       
-      // Account for relay increasing consumption by 10kW when ON
+      // Account for relay increasing consumption by configured power when ON
       let effectiveConsumption = current.consumption;
       if (current.relayState) {
-        effectiveConsumption += 10;
+        effectiveConsumption += config.relayNominalPower;
       }
       
       // Calculate net power (positive = from grid, negative = to grid)
@@ -69,6 +71,11 @@ export function BatterySimulator() {
       totalCostAccumulator += current.cost;
     }
     
+    // Carry final SoC forward for remaining forecast slots
+    for (let j = SIMULATION_SLOTS; j < optimizedData.length; j++) {
+      optimizedData[j].soc = optimizedData[SIMULATION_SLOTS - 1].soc;
+    }
+
     setSimulationData(optimizedData);
     setTotalCost(totalCostAccumulator);
   };
