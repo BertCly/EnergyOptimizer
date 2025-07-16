@@ -57,12 +57,19 @@ export const FIXED_SIMULATION_DATA = {
   ]
 };
 
-export function generateFixedSimulationData(initialSoc: number): SimulationDataPoint[] {
+export const SIMULATION_SLOTS = 96; // 24h at 15 min intervals
+export const FORECAST_SLOTS = 48;   // extra 12h forecast
+export const TOTAL_SLOTS = SIMULATION_SLOTS + FORECAST_SLOTS;
+
+export function generateFixedSimulationData(
+  initialSoc: number,
+  totalSlots: number = TOTAL_SLOTS
+): SimulationDataPoint[] {
   const data: SimulationDataPoint[] = [];
   const startTime = new Date();
   startTime.setHours(8, 0, 0, 0); // Start at 8:00 AM
 
-  for (let i = 0; i < 96; i++) {
+  for (let i = 0; i < totalSlots; i++) {
     const time = new Date(startTime.getTime() + i * 15 * 60 * 1000);
     const hour = time.getHours();
 
