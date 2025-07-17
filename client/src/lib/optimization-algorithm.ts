@@ -227,13 +227,24 @@ function shouldDischargeNow(
   }
 
   // Determine energy that must remain for upcoming expensive consumption (3 hours)
-  const futureNeed = forecast.slice(1, 13).reduce((sum, slot) => {
-    if (slot.consumptionPrice > current.injectionPrice) {
-      const d = Math.max(0, slot.consumption - slot.pvForecast);
-      return sum + d * 0.25;
+  const lookahead = forecast.slice(1, 13);
+  let futureDeficit = 0;
+  let expectedCharge = 0;
+
+  for (const slot of lookahead) {
+    if (slot.consumptionPrice > current.consumptionPrice) {
+      const deficit = Math.max(0, slot.consumption - slot.pvForecast);
+      futureDeficit += deficit * 0.25;
     }
-    return sum;
-  }, 0);
+
+    if (slot.pvForecast > slot.consumption) {
+      const surplus = Math.min(slot.pvForecast - slot.consumption, config.maxChargeRate);
+      expectedCharge += surplus * 0.25;
+    }
+  }
+
+  const availableCapacity = ((config.maxSoc - current.soc) / 100) * config.batteryCapacity;
+  const futureNeed = Math.max(0, futureDeficit - Math.min(expectedCharge, availableCapacity));
 
   const socEnergy = (current.soc / 100) * config.batteryCapacity;
   const minEnergy = (config.minSoc / 100) * config.batteryCapacity;
