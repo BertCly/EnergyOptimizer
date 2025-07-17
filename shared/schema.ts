@@ -8,12 +8,11 @@ export const batteryConfigSchema = z.object({
   initialSoc: z.number().min(0).max(100).default(50),
   minSoc: z.number().min(0).max(100).default(5),
   maxSoc: z.number().min(0).max(100).default(95),
-  relayConsumption: z.number().min(0).default(10),
-  relayMinRuntimeActivation: z.number().min(0).default(0.5),
-  relayMinRuntimeDaily: z.number().min(0).default(2),
-  relayRuntimeDeadlineHour: z.number().min(0).max(23).default(20),
-  relayActivationPower: z.number().min(0).default(5),
-  relayNominalPower: z.number().min(0).default(10),
+  loadMinRuntimeActivation: z.number().min(0).default(0.5),
+  loadMinRuntimeDaily: z.number().min(0).default(2),
+  loadRuntimeDeadlineHour: z.number().min(0).max(23).default(20),
+  loadActivationPower: z.number().min(0).default(5),
+  loadNominalPower: z.number().min(0).default(10),
 });
 
 // Simulation Data Point Schema
@@ -29,19 +28,19 @@ export const simulationDataPointSchema = z.object({
   soc: z.number(),
   netPower: z.number(),
   cost: z.number(),
-  curtailment: z.number().default(0),
-  relayState: z.boolean().default(false),
-  decision: z.string().default('hold'),
-  reason: z.string().default(''),
+  pvCurtailment: z.number().default(0),
+  loadState: z.boolean().default(false),
+  batteryDecision: z.string().default('hold'),
+  batteryDecisionReason: z.string().default(''),
 });
 
 // Control Decision Schema
 export const controlDecisionSchema = z.object({
   batteryPower: z.number(),
-  curtailment: z.number().default(0),
-  relayState: z.boolean().default(false),
-  decision: z.string().default('hold'),
-  reason: z.string().default(''),
+  pvCurtailment: z.number().default(0),
+  loadState: z.boolean().default(false),
+  batteryDecision: z.string().default('hold'),
+  batteryDecisionReason: z.string().default(''),
 });
 
 // Export types

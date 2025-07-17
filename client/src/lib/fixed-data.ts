@@ -89,10 +89,10 @@ export function generateFixedSimulationData(
       soc: initialSoc,
       netPower: 0,
       cost: 0,
-      curtailment: 0,
-      relayState: false,
-      decision: 'hold',
-      reason: '',
+      pvCurtailment: 0,
+      loadState: false,
+      batteryDecision: 'hold',
+      batteryDecisionReason: '',
     });
   }
 
