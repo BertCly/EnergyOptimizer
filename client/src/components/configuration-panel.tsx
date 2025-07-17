@@ -177,30 +177,6 @@ export function ConfigurationPanel({ config, onConfigChange }: ConfigurationPane
               className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <Label htmlFor="relayConsumption" className="text-sm font-medium text-gray-300">
-                Relay Consumption (kW)
-              </Label>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="w-4 h-4 text-gray-400" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Additional power consumption when relay is activated</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            <Input
-              id="relayConsumption"
-              type="number"
-              min="0"
-              max="1000"
-              value={config.relayConsumption}
-              onChange={(e) => updateConfig('relayConsumption', parseFloat(e.target.value))}
-              className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
         </CardContent>
       </Card>
 
@@ -210,70 +186,120 @@ export function ConfigurationPanel({ config, onConfigChange }: ConfigurationPane
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="relayActivationPower" className="text-sm font-medium text-gray-300">
-              Activation Power (kW)
-            </Label>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="loadActivationPower" className="text-sm font-medium text-gray-300">
+                Activation Power (kW)
+              </Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Minimum PV surplus required to enable the load</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <Input
-              id="relayActivationPower"
+              id="loadActivationPower"
               type="number"
               min="0"
-              value={config.relayActivationPower}
-              onChange={(e) => updateConfig('relayActivationPower', parseFloat(e.target.value))}
+              value={config.loadActivationPower}
+              onChange={(e) => updateConfig('loadActivationPower', parseFloat(e.target.value))}
               className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
-            <Label htmlFor="relayNominalPower" className="text-sm font-medium text-gray-300">
-              Nominal Power (kW)
-            </Label>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="loadNominalPower" className="text-sm font-medium text-gray-300">
+                Nominal Power (kW)
+              </Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Power consumed when the load is active</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <Input
-              id="relayNominalPower"
+              id="loadNominalPower"
               type="number"
               min="0"
-              value={config.relayNominalPower}
-              onChange={(e) => updateConfig('relayNominalPower', parseFloat(e.target.value))}
+              value={config.loadNominalPower}
+              onChange={(e) => updateConfig('loadNominalPower', parseFloat(e.target.value))}
               className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
-            <Label htmlFor="relayMinRuntimeActivation" className="text-sm font-medium text-gray-300">
-              Min Runtime per Activation (h)
-            </Label>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="loadMinRuntimeActivation" className="text-sm font-medium text-gray-300">
+                Min Runtime per Activation (h)
+              </Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Minimum time the load must remain active once started</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <Input
-              id="relayMinRuntimeActivation"
+              id="loadMinRuntimeActivation"
               type="number"
               min="0"
               step="0.25"
-              value={config.relayMinRuntimeActivation}
-              onChange={(e) => updateConfig('relayMinRuntimeActivation', parseFloat(e.target.value))}
+              value={config.loadMinRuntimeActivation}
+              onChange={(e) => updateConfig('loadMinRuntimeActivation', parseFloat(e.target.value))}
               className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
-            <Label htmlFor="relayMinRuntimeDaily" className="text-sm font-medium text-gray-300">
-              Min Runtime per Day (h)
-            </Label>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="loadMinRuntimeDaily" className="text-sm font-medium text-gray-300">
+                Min Runtime per Day (h)
+              </Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Required cumulative runtime each day</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <Input
-              id="relayMinRuntimeDaily"
+              id="loadMinRuntimeDaily"
               type="number"
               min="0"
               step="0.25"
-              value={config.relayMinRuntimeDaily}
-              onChange={(e) => updateConfig('relayMinRuntimeDaily', parseFloat(e.target.value))}
+              value={config.loadMinRuntimeDaily}
+              onChange={(e) => updateConfig('loadMinRuntimeDaily', parseFloat(e.target.value))}
               className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
-            <Label htmlFor="relayRuntimeDeadlineHour" className="text-sm font-medium text-gray-300">
-              Runtime Deadline Hour
-            </Label>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="loadRuntimeDeadlineHour" className="text-sm font-medium text-gray-300">
+                Runtime Deadline Hour
+              </Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Hour of the day by which the minimum runtime must be met</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <Input
-              id="relayRuntimeDeadlineHour"
+              id="loadRuntimeDeadlineHour"
               type="number"
               min="0"
               max="23"
-              value={config.relayRuntimeDeadlineHour}
-              onChange={(e) => updateConfig('relayRuntimeDeadlineHour', parseFloat(e.target.value))}
+              value={config.loadRuntimeDeadlineHour}
+              onChange={(e) => updateConfig('loadRuntimeDeadlineHour', parseFloat(e.target.value))}
               className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
             />
           </div>

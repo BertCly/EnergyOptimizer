@@ -18,18 +18,18 @@ export function controlCycle(
 
   let decision: ControlDecision = {
     batteryPower: 0,
-    curtailment: 0,
-    relayState: false,
-    decision: 'hold',
-    reason: '',
+    pvCurtailment: 0,
+    loadState: false,
+    batteryDecision: 'hold',
+    batteryDecisionReason: '',
   };
 
   // Charging logic
   const chargeDecision = shouldChargeNow(currentSlot, cheapestSlots, current, config, forecast);
   if (chargeDecision.power > 0) {
     decision.batteryPower = chargeDecision.power;
-    decision.decision = 'charge';
-    decision.reason = chargeDecision.reason;
+    decision.batteryDecision = 'charge';
+    decision.batteryDecisionReason = chargeDecision.reason;
   }
   // Discharging logic
   else {
@@ -38,69 +38,24 @@ export function controlCycle(
       mostExpensiveSlots,
       current,
       config,
-      decision.relayState,
+      decision.loadState,
       forecast
     );
     if (dischargeDecision.power > 0) {
       decision.batteryPower = -dischargeDecision.power;
-      decision.decision = 'discharge';
-      decision.reason = `Charge decision: ${chargeDecision.reason}\nDischarge decision: ${dischargeDecision.reason}`;
+      decision.batteryDecision = 'discharge';
+      decision.batteryDecisionReason = `Charge decision: ${chargeDecision.reason}\nDischarge decision: ${dischargeDecision.reason}`;
     } else {
       // when holding, pick reason from dischargeDecision or chargeDecision
-      decision.reason = `Charge decision: ${chargeDecision.reason}\nDischarge decision: ${dischargeDecision.reason}`;
+      decision.batteryDecisionReason = `Charge decision: ${chargeDecision.reason}\nDischarge decision: ${dischargeDecision.reason}`;
     }
   }
 
-   // Relay Control Logic - determine first as it affects consumption
-  const prevRelay = currentSlot > 0 ? data[currentSlot - 1].relayState : false;
-  let activationRuntime = 0;
-  if (prevRelay) {
-    for (let i = currentSlot - 1; i >= 0 && data[i].relayState; i--) {
-      activationRuntime += 0.25;
-    }
-  }
-  let dailyRuntime = 0;
-  for (let i = 0; i < currentSlot; i++) {
-    if (data[i].relayState) dailyRuntime += 0.25;
-  }
+  // Controllable load logic
+  decision.loadState = determineLoadState(currentSlot, data, decision.batteryPower, config, current);
 
-  const oversupply = current.pvGeneration - current.consumption - Math.max(decision.batteryPower, 0);
-  const gridImport = Math.max(0, current.consumption + Math.max(decision.batteryPower,0) - current.pvGeneration);
-  const needDailyRuntime = current.time.getHours() >= config.relayRuntimeDeadlineHour &&
-                           dailyRuntime < config.relayMinRuntimeDaily;
-
-  let relay = prevRelay;
-  if (relay) {
-    activationRuntime += 0.25;
-    if (activationRuntime >= config.relayMinRuntimeActivation && !needDailyRuntime) {
-      if (config.relayActivationPower >= config.relayNominalPower) {
-        if (oversupply < config.relayNominalPower) relay = false;
-      } else {
-        if (gridImport > (config.relayNominalPower - config.relayActivationPower)) relay = false;
-      }
-    }
-  } else {
-    if (oversupply >= config.relayActivationPower || needDailyRuntime) {
-      relay = true;
-    }
-  }
-
-  decision.relayState = relay;
-
-  // PV Curtailment Logic
-  if (current.consumptionPrice < 0) {
-    // Negative consumption price: curtail all PV to maximize grid offtake
-    decision.curtailment = current.pvGeneration;
-  } else if (current.injectionPrice < 0) {
-    // Negative injection price: only curtail excess to avoid injecting
-    let effectiveConsumption = current.consumption + decision.batteryPower;
-    if (decision.relayState) {
-      effectiveConsumption += config.relayNominalPower;
-    }
-
-    const excess = Math.max(0, current.pvGeneration - effectiveConsumption);
-    decision.curtailment = excess;
-  }
+  // PV curtailment logic
+  decision.pvCurtailment = calculatePvCurtailment(current, decision, config);
 
   return decision;
 }
@@ -202,7 +157,7 @@ function shouldDischargeNow(
   mostExpensiveSlots: number[],
   current: SimulationDataPoint,
   config: BatteryConfig,
-  relayState: boolean,
+  loadState: boolean,
   forecast: SimulationDataPoint[]
 ): { power: number; reason: string } {
   if (!mostExpensiveSlots.includes(currentSlot)) {
@@ -215,9 +170,9 @@ function shouldDischargeNow(
   // Calculate what's needed: consumption minus PV production
   let effectiveConsumption = current.consumption;
   
-  // Add relay consumption when relay is ON
-  if (relayState) {
-    effectiveConsumption += config.relayNominalPower;
+  // Add controllable load consumption when load is ON
+  if (loadState) {
+    effectiveConsumption += config.loadNominalPower;
   }
   
   const deficit = Math.max(0, effectiveConsumption - current.pvGeneration);
@@ -258,4 +213,71 @@ function shouldDischargeNow(
 
   // Only discharge what's actually needed, up to allowed power
   return { power: maxPower, reason: 'cover consumption' };
+}
+
+function determineLoadState(
+  currentSlot: number,
+  data: SimulationDataPoint[],
+  batteryPower: number,
+  config: BatteryConfig,
+  current: SimulationDataPoint
+): boolean {
+  const prevLoad = currentSlot > 0 ? data[currentSlot - 1].loadState : false;
+
+  let activationRuntime = 0;
+  if (prevLoad) {
+    for (let i = currentSlot - 1; i >= 0 && data[i].loadState; i--) {
+      activationRuntime += 0.25;
+    }
+  }
+
+  let dailyRuntime = 0;
+  for (let i = 0; i < currentSlot; i++) {
+    if (data[i].loadState) dailyRuntime += 0.25;
+  }
+
+  const oversupply = current.pvGeneration - current.consumption - Math.max(batteryPower, 0);
+  const gridImport = Math.max(0, current.consumption + Math.max(batteryPower, 0) - current.pvGeneration);
+  const needDailyRuntime =
+    current.time.getHours() >= config.loadRuntimeDeadlineHour &&
+    dailyRuntime < config.loadMinRuntimeDaily;
+
+  let load = prevLoad;
+  if (load) {
+    activationRuntime += 0.25;
+    if (activationRuntime >= config.loadMinRuntimeActivation && !needDailyRuntime) {
+      if (config.loadActivationPower >= config.loadNominalPower) {
+        if (oversupply < config.loadNominalPower) load = false;
+      } else {
+        if (gridImport > config.loadNominalPower - config.loadActivationPower) load = false;
+      }
+    }
+  } else {
+    if (oversupply >= config.loadActivationPower || needDailyRuntime) {
+      load = true;
+    }
+  }
+
+  return load;
+}
+
+function calculatePvCurtailment(
+  current: SimulationDataPoint,
+  decision: ControlDecision,
+  config: BatteryConfig
+): number {
+  if (current.consumptionPrice < 0) {
+    return current.pvGeneration;
+  }
+
+  if (current.injectionPrice < 0) {
+    let effectiveConsumption = current.consumption + decision.batteryPower;
+    if (decision.loadState) {
+      effectiveConsumption += config.loadNominalPower;
+    }
+    const excess = Math.max(0, current.pvGeneration - effectiveConsumption);
+    return excess;
+  }
+
+  return 0;
 }

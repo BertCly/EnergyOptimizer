@@ -39,15 +39,15 @@ export function BatterySimulator() {
       
       // Update battery decision
       current.batteryPower = decision.batteryPower;
-      current.curtailment = decision.curtailment;
-      current.relayState = decision.relayState;
-      current.decision = decision.decision;
-      current.reason = decision.reason;
+      current.pvCurtailment = decision.pvCurtailment;
+      current.loadState = decision.loadState;
+      current.batteryDecision = decision.batteryDecision;
+      current.batteryDecisionReason = decision.batteryDecisionReason;
       
-      // Account for relay increasing consumption by configured power when ON
+      // Account for controllable load increasing consumption when ON
       let effectiveConsumption = current.consumption;
-      if (current.relayState) {
-        effectiveConsumption += config.relayNominalPower;
+      if (current.loadState) {
+        effectiveConsumption += config.loadNominalPower;
       }
       
       // Calculate net power (positive = from grid, negative = to grid)
@@ -98,10 +98,10 @@ export function BatterySimulator() {
     
     const visibleData = simulationData.slice(0, currentSlot + 1);
     const csvData = visibleData.map(d =>
-      `${d.timeString},${d.consumptionPrice.toFixed(3)},${d.injectionPrice.toFixed(3)},${d.consumption.toFixed(1)},${d.pvGeneration.toFixed(1)},${d.pvForecast?.toFixed(1) || '0.0'},${d.batteryPower.toFixed(1)},${d.soc.toFixed(1)},${d.decision || 'hold'},${d.relayState ? 'ON' : 'OFF'},${d.curtailment?.toFixed(1) || '0.0'},${d.netPower.toFixed(1)},${d.cost.toFixed(3)}`
+      `${d.timeString},${d.consumptionPrice.toFixed(3)},${d.injectionPrice.toFixed(3)},${d.consumption.toFixed(1)},${d.pvGeneration.toFixed(1)},${d.pvForecast?.toFixed(1) || '0.0'},${d.batteryPower.toFixed(1)},${d.soc.toFixed(1)},${d.batteryDecision || 'hold'},${d.loadState ? 'ON' : 'OFF'},${d.pvCurtailment?.toFixed(1) || '0.0'},${d.netPower.toFixed(1)},${d.cost.toFixed(3)}`
     ).join('\n');
 
-    const csv = 'Time,Consumption Price (€/kWh),Injection Price (€/kWh),Consumption (kW),PV Generation (kW),PV Forecast (kW),Battery Power (kW),SoC (%),Decision,Relay,Curtailment (kW),Net Power (kW),Cost (€)\n' + csvData;
+    const csv = 'Time,Consumption Price (€/kWh),Injection Price (€/kWh),Consumption (kW),PV Generation (kW),PV Forecast (kW),Battery Power (kW),SoC (%),Decision,Controllable Load,PV Curtailment (kW),Net Power (kW),Cost (€)\n' + csvData;
     
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
