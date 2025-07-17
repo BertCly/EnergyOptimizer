@@ -18,7 +18,7 @@ export function controlCycle(
 
   let decision: ControlDecision = {
     batteryPower: 0,
-    pvCurtailment: 0,
+    curtailment: 0,
     loadState: false,
     batteryDecision: 'hold',
     batteryDecisionReason: '',
@@ -55,7 +55,7 @@ export function controlCycle(
   decision.loadState = determineLoadState(currentSlot, data, decision.batteryPower, config, current);
 
   // PV curtailment logic
-  decision.pvCurtailment = calculatePvCurtailment(current, decision, config);
+  decision.curtailment = calculatePvCurtailment(current, decision, config);
 
   return decision;
 }

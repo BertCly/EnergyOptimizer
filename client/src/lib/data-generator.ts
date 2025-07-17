@@ -1,24 +1,38 @@
 import { SimulationDataPoint } from "@shared/schema";
 
-export function generateSimulationData(initialSoc: number): SimulationDataPoint[] {
+export type SimulationScenario =
+  | 'eveningHighPrice'
+  | 'negativeDayPrice'
+  | 'variablePv'
+  | 'startupPeak'
+  | 'lowPv'
+  | 'random';
+
+export function generateSimulationData(initialSoc: number, scenario: SimulationScenario, slots: number = 48): SimulationDataPoint[] {
   const data: SimulationDataPoint[] = [];
   const startTime = new Date();
   startTime.setHours(8, 0, 0, 0); // Start at 8:00 AM
 
-  const priceSchedule: Record<number, { injection: number; consumption: number }> = {
-    14: { injection: -125.34, consumption: -15.86 },
-    15: { injection: -115.34, consumption: -5.86 },
-    16: { injection: -19.68, consumption: 92.38 },
-    17: { injection: 38.31, consumption: 155.1 },
-    18: { injection: 49.07, consumption: 168.31 },
-    19: { injection: 61.94, consumption: 184.04 },
-    20: { injection: 75.28, consumption: 200.34 },
-    21: { injection: 91.87, consumption: 220.61 },
-    22: { injection: 83.15, consumption: 209.97 },
-    23: { injection: 65.43, consumption: 188.31 },
-  };
+  const priceSchedule: Record<number, { injection: number; consumption: number }> = {};
 
-  for (let i = 0; i < 48; i++) {
+  if (scenario === 'eveningHighPrice') {
+    for (let h = 18; h <= 23; h++) {
+      priceSchedule[h] = { injection: 200, consumption: 300 };
+    }
+  } else if (scenario === 'negativeDayPrice') {
+    for (let h = 9; h <= 16; h++) {
+      priceSchedule[h] = { injection: -120, consumption: -40 };
+    }
+  } else if (scenario === 'random') {
+    for (let h = 0; h < 24; h++) {
+      priceSchedule[h] = {
+        injection: Math.random() * 150 - 50,
+        consumption: Math.random() * 200 - 20,
+      };
+    }
+  }
+
+  for (let i = 0; i < slots; i++) {
     const time = new Date(startTime.getTime() + i * 15 * 60 * 1000);
     const hour = time.getHours();
 
@@ -27,27 +41,33 @@ export function generateSimulationData(initialSoc: number): SimulationDataPoint[
     const consumptionPrice = pricePair.consumption / 1000; // €/kWh
 
     // Consumption pattern with afternoon peak
-    let consumption = 15; // Base consumption
+    let consumption = 15;
     if (hour >= 16 && hour <= 20) {
-      consumption = 35 + Math.random() * 10; // Afternoon/evening peak
+      consumption = 35 + Math.random() * 10;
     } else if (hour >= 7 && hour <= 9) {
-      consumption = 25 + Math.random() * 5; // Morning medium
+      consumption = 25 + Math.random() * 5;
+      if (scenario === 'startupPeak' && hour === 8) {
+        consumption += 40;
+      }
     } else if (hour >= 22 || hour <= 6) {
-      consumption = 10 + Math.random() * 5; // Night low
+      consumption = 10 + Math.random() * 5;
     } else {
-      consumption = 20 + Math.random() * 10; // Day normal
+      consumption = 20 + Math.random() * 10;
     }
 
     // PV generation pattern (10:00-16:00)
     let pvGeneration = 0;
     let pvForecast = 0;
     if (hour >= 10 && hour <= 16) {
-      const midDay = 13; // Peak at 13:00
+      const midDay = 13;
       const distanceFromPeak = Math.abs(hour - midDay);
-      const maxGeneration = 40;
-      // Actual PV generation (with weather variability)
+      let maxGeneration = 40;
+      if (scenario === 'variablePv') {
+        maxGeneration = 20 + Math.random() * 30;
+      } else if (scenario === 'lowPv') {
+        maxGeneration = 15;
+      }
       pvGeneration = Math.max(0, maxGeneration * (1 - distanceFromPeak / 3) + Math.random() * 5);
-      // PV forecast (slightly more optimistic, without weather variability)
       pvForecast = Math.max(0, maxGeneration * (1 - distanceFromPeak / 3) + 2);
     }
 
@@ -63,7 +83,7 @@ export function generateSimulationData(initialSoc: number): SimulationDataPoint[
       soc: initialSoc,
       netPower: 0,
       cost: 0,
-      pvCurtailment: 0,
+      curtailment: 0,
       loadState: false,
       batteryDecision: 'hold',
       batteryDecisionReason: '',

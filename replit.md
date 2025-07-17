@@ -49,7 +49,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Key Components
 
-#### Battery Simulator (`client/src/components/battery-simulator.tsx`)
+#### Energy Flow Simulator (`client/src/components/energy-flow-simulator.tsx`)
 - Main simulation controller with real-time updates
 - Manages battery state, pricing, and energy flow
 - Integrates optimization algorithm for charge/discharge decisions
@@ -80,7 +80,7 @@ Preferred communication style: Simple, everyday language.
 ### Data Flow
 
 1. **Configuration**: User sets battery parameters through Configuration Panel
-2. **Simulation Start**: Battery Simulator generates 48 time slots of mock data (prices, consumption, PV)
+2. **Simulation Start**: Energy Flow Simulator generates 48 time slots of mock data (prices, consumption, PV)
 3. **Optimization**: Control algorithm analyzes current state and price forecast
 4. **Decision Making**: System determines optimal battery power for each time slot
 5. **Visualization**: Charts and tables update in real-time showing energy flows and costs

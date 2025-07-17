@@ -2,12 +2,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SimulationDataPoint } from "@shared/schema";
 import { useEffect, useRef } from "react";
 
+import { BatteryConfig } from "@shared/schema";
+
 interface ChartsSectionProps {
   data: SimulationDataPoint[];
   currentSlot: number;
+  config: BatteryConfig;
 }
 
-export function ChartsSection({ data, currentSlot }: ChartsSectionProps) {
+export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps) {
   const mainChartRef = useRef<HTMLCanvasElement>(null);
   const socChartRef = useRef<HTMLCanvasElement>(null);
   const mainChartInstance = useRef<any>(null);
@@ -40,6 +43,14 @@ export function ChartsSection({ data, currentSlot }: ChartsSectionProps) {
       if (socChart && socChart.data && socChart.data.datasets && socChart.data.datasets.length >= 1) {
         socChart.data.labels = labels;
         socChart.data.datasets[0].data = soc;
+        if (socChart.options.plugins && (socChart.options as any).plugins.annotation) {
+          (socChart.options as any).plugins.annotation.annotations.minSocLine.yMin = config.minSoc;
+          (socChart.options as any).plugins.annotation.annotations.minSocLine.yMax = config.minSoc;
+          (socChart.options as any).plugins.annotation.annotations.minSocLine.label.content = `Min SoC (${config.minSoc}%)`;
+          (socChart.options as any).plugins.annotation.annotations.maxSocLine.yMin = config.maxSoc;
+          (socChart.options as any).plugins.annotation.annotations.maxSocLine.yMax = config.maxSoc;
+          (socChart.options as any).plugins.annotation.annotations.maxSocLine.label.content = `Max SoC (${config.maxSoc}%)`;
+        }
         socChart.update('none');
       }
     }
@@ -224,13 +235,13 @@ export function ChartsSection({ data, currentSlot }: ChartsSectionProps) {
                   annotations: {
                     minSocLine: {
                       type: 'line',
-                      yMin: 5,
-                      yMax: 5,
+                      yMin: config.minSoc,
+                      yMax: config.minSoc,
                       borderColor: '#EF4444',
                       borderWidth: 2,
                       borderDash: [5, 5],
                       label: {
-                        content: 'Min SoC (5%)',
+                        content: `Min SoC (${config.minSoc}%)`,
                         enabled: true,
                         position: 'start',
                         color: '#EF4444',
@@ -246,13 +257,13 @@ export function ChartsSection({ data, currentSlot }: ChartsSectionProps) {
                     },
                     maxSocLine: {
                       type: 'line',
-                      yMin: 95,
-                      yMax: 95,
+                      yMin: config.maxSoc,
+                      yMax: config.maxSoc,
                       borderColor: '#10B981',
                       borderWidth: 2,
                       borderDash: [5, 5],
                       label: {
-                        content: 'Max SoC (95%)',
+                        content: `Max SoC (${config.maxSoc}%)`,
                         enabled: true,
                         position: 'start',
                         color: '#10B981',
