@@ -6,16 +6,14 @@ import { ChartsSection } from "./charts-section";
 import { EditableDataTable } from "./editable-data-table";
 
 import { BatteryConfig, SimulationDataPoint, batteryConfigSchema } from "@shared/schema";
-import { generateFixedSimulationData, SIMULATION_SLOTS, TOTAL_SLOTS } from "@/lib/fixed-data";
+import { SIMULATION_SLOTS, TOTAL_SLOTS } from "@/lib/fixed-data";
+import { generateSimulationData, SimulationScenario } from "@/lib/data-generator";
 import { controlCycle } from "@/lib/optimization-algorithm";
 
-export function BatterySimulator() {
+export function EnergyFlowSimulator() {
   const [config, setConfig] = useState<BatteryConfig>(batteryConfigSchema.parse({}));
-  const initialData = generateFixedSimulationData(
-    batteryConfigSchema.parse({}).initialSoc,
-    TOTAL_SLOTS
-  );
-  const [simulationData, setSimulationData] = useState<SimulationDataPoint[]>(initialData);
+  const [scenario, setScenario] = useState<SimulationScenario>('random');
+  const [simulationData, setSimulationData] = useState<SimulationDataPoint[]>([]);
   const [currentSlot, setCurrentSlot] = useState(SIMULATION_SLOTS - 1);
 
   const [totalCost, setTotalCost] = useState(0);
@@ -23,7 +21,7 @@ export function BatterySimulator() {
 
 
   const runFullSimulation = () => {
-    const data = generateFixedSimulationData(config.initialSoc, TOTAL_SLOTS);
+    const data = generateSimulationData(config.initialSoc, scenario, TOTAL_SLOTS);
     setCurrentSlot(SIMULATION_SLOTS - 1);
     setTotalCost(0);
 
@@ -39,7 +37,7 @@ export function BatterySimulator() {
       
       // Update battery decision
       current.batteryPower = decision.batteryPower;
-      current.pvCurtailment = decision.pvCurtailment;
+      current.curtailment = decision.curtailment;
       current.loadState = decision.loadState;
       current.batteryDecision = decision.batteryDecision;
       current.batteryDecisionReason = decision.batteryDecisionReason;
@@ -80,10 +78,10 @@ export function BatterySimulator() {
     setTotalCost(totalCostAccumulator);
   };
 
-  // Run simulation on component mount and when config changes
+  // Run simulation on component mount and when config or scenario changes
   useEffect(() => {
     runFullSimulation();
-  }, [config]);
+  }, [config, scenario]);
 
   // Run simulation automatically on initial mount
   useEffect(() => {
@@ -98,7 +96,7 @@ export function BatterySimulator() {
     
     const visibleData = simulationData.slice(0, currentSlot + 1);
     const csvData = visibleData.map(d =>
-      `${d.timeString},${d.consumptionPrice.toFixed(3)},${d.injectionPrice.toFixed(3)},${d.consumption.toFixed(1)},${d.pvGeneration.toFixed(1)},${d.pvForecast?.toFixed(1) || '0.0'},${d.batteryPower.toFixed(1)},${d.soc.toFixed(1)},${d.batteryDecision || 'hold'},${d.loadState ? 'ON' : 'OFF'},${d.pvCurtailment?.toFixed(1) || '0.0'},${d.netPower.toFixed(1)},${d.cost.toFixed(3)}`
+      `${d.timeString},${d.consumptionPrice.toFixed(3)},${d.injectionPrice.toFixed(3)},${d.consumption.toFixed(1)},${d.pvGeneration.toFixed(1)},${d.pvForecast?.toFixed(1) || '0.0'},${d.batteryPower.toFixed(1)},${d.soc.toFixed(1)},${d.batteryDecision || 'hold'},${d.loadState ? 'ON' : 'OFF'},${d.curtailment?.toFixed(1) || '0.0'},${d.netPower.toFixed(1)},${d.cost.toFixed(3)}`
     ).join('\n');
 
     const csv = 'Time,Consumption Price (€/kWh),Injection Price (€/kWh),Consumption (kW),PV Generation (kW),PV Forecast (kW),Battery Power (kW),SoC (%),Decision,Controllable Load,PV Curtailment (kW),Net Power (kW),Cost (€)\n' + csvData;
@@ -143,11 +141,15 @@ export function BatterySimulator() {
             <ConfigurationPanel
               config={config}
               onConfigChange={setConfig}
+              scenario={scenario}
+              onScenarioChange={setScenario}
             />
           </div>
 
           <div className="lg:col-span-2">
-            <ChartsSection data={simulationData} currentSlot={currentSlot} />
+            {simulationData.length > 0 && (
+              <ChartsSection data={simulationData} currentSlot={currentSlot} config={config} />
+            )}
           </div>
         </div>
 

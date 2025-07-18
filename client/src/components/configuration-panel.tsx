@@ -5,12 +5,16 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Info } from "lucide-react";
 import { BatteryConfig } from "@shared/schema";
 
+import { SimulationScenario } from "@/lib/data-generator";
+
 interface ConfigurationPanelProps {
   config: BatteryConfig;
   onConfigChange: (config: BatteryConfig) => void;
+  scenario: SimulationScenario;
+  onScenarioChange: (s: SimulationScenario) => void;
 }
 
-export function ConfigurationPanel({ config, onConfigChange }: ConfigurationPanelProps) {
+export function ConfigurationPanel({ config, onConfigChange, scenario, onScenarioChange }: ConfigurationPanelProps) {
   const updateConfig = (field: keyof BatteryConfig, value: number) => {
     onConfigChange({
       ...config,
@@ -20,6 +24,25 @@ export function ConfigurationPanel({ config, onConfigChange }: ConfigurationPane
 
   return (
     <div className="space-y-6">
+      <Card className="bg-gray-800 border-gray-700">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold text-gray-50">Scenario</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <select
+            className="mt-1 bg-gray-700 border-gray-600 text-gray-50 w-full"
+            value={scenario}
+            onChange={e => onScenarioChange(e.target.value as SimulationScenario)}
+          >
+            <option value="eveningHighPrice">Evening high prices</option>
+            <option value="negativeDayPrice">Negative day prices</option>
+            <option value="variablePv">Variable PV</option>
+            <option value="startupPeak">Workday startup peak</option>
+            <option value="lowPv">Low PV yield</option>
+            <option value="random">Random</option>
+          </select>
+        </CardContent>
+      </Card>
       <Card className="bg-gray-800 border-gray-700">
         <CardHeader>
           <CardTitle className="text-lg font-semibold text-gray-50">Battery Configuration</CardTitle>
