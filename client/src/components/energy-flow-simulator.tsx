@@ -12,7 +12,7 @@ import { controlCycle } from "@/lib/optimization-algorithm";
 
 export function EnergyFlowSimulator() {
   const [config, setConfig] = useState<BatteryConfig>(batteryConfigSchema.parse({}));
-  const [scenario, setScenario] = useState<SimulationScenario>('random');
+  const [scenario, setScenario] = useState<SimulationScenario>('eveningHighPrice');
   const [simulationData, setSimulationData] = useState<SimulationDataPoint[]>([]);
   const [currentSlot, setCurrentSlot] = useState(SIMULATION_SLOTS - 1);
 
