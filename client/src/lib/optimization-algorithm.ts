@@ -107,25 +107,41 @@ function shouldChargeNow(
   config: BatteryConfig,
   forecast: SimulationDataPoint[]
 ): { power: number; reason: string } {
-   if (current.soc >= config.maxSoc) {
+  if (current.soc >= config.maxSoc) {
     return { power: 0, reason: 'battery full' };
   }
 
-  // const futureDeficit = forecast
-  //   .slice(0, 16)
-  //   .some((slot, i) =>
-  //     cheapestSlots.includes(currentSlot + i) && slot.pvForecast < slot.consumption
-  //   );
-   const futureDeficit = forecast
-  .slice(0, 16)
-  .reduce((total, slot, i) => {
-    const globalIndex = currentSlot + i;
+  // Look ahead 4 hours for upcoming deficits
+  const lookahead = forecast.slice(1, 17);
+  const availableCapacity =
+    ((config.maxSoc - current.soc) / 100) * config.batteryCapacity;
 
-    if (!cheapestSlots.includes(globalIndex)) return total;
+  let pvSurplusEnergy = 0; // kWh already expected before a deficit
+  let cheapestPrice = current.consumptionPrice;
+  let futureDeficit = 0; // energy to cover (kWh)
 
-    const deficit = slot.consumption - slot.pvForecast;
-    return total + Math.max(0, deficit); // enkel positieve tekorten optellen
-  }, 0);
+  for (const slot of lookahead) {
+    cheapestPrice = Math.min(cheapestPrice, slot.consumptionPrice);
+
+    const net = slot.consumption - slot.pvForecast;
+    if (net <= 0) {
+      // accumulate PV surplus before the deficit, capped by available capacity
+      pvSurplusEnergy = Math.min(
+        pvSurplusEnergy + (-net) * 0.25,
+        availableCapacity
+      );
+      continue;
+    }
+
+    const needed = Math.max(0, net * 0.25 - pvSurplusEnergy);
+    pvSurplusEnergy = Math.max(0, pvSurplusEnergy - net * 0.25);
+
+    if (needed > 0 && current.consumptionPrice <= cheapestPrice) {
+      futureDeficit = Math.min(needed, availableCapacity);
+      break;
+    }
+  }
+
   if (futureDeficit > 0) {
     return {
       power: Math.min(futureDeficit / 0.25, config.maxChargeRate),
