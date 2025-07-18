@@ -51,7 +51,7 @@ export function EnergyFlowSimulator() {
       }
       
       // Calculate net power (positive = from grid, negative = to grid)
-      current.netPower = effectiveConsumption + current.batteryPower - current.pvGeneration - current.curtailment;
+      current.netPower = effectiveConsumption + current.batteryPower - current.pvGeneration + current.curtailment;
       
       // Calculate cost for this interval (15 minutes = 0.25 hours)
       const pricePerKWh = current.netPower >= 0 ? current.consumptionPrice : current.injectionPrice;

@@ -59,17 +59,36 @@ export function controlCycle(
 
 
 
+/**
+ * Bepaalt of de batterij nu moet opladen, en zo ja, hoeveel vermogen.
+ *
+ * @param currentSlot - Huidige tijdslot index
+ * @param current - Huidige simulatiepunt
+ * @param config - Batterijconfiguratie
+ * @param forecast - Array van toekomstige simulatiepunten (inclusief huidige)
+ * @returns { power: number, reason: string }
+ */
 function shouldChargeNow(
   currentSlot: number,
   current: SimulationDataPoint,
   config: BatteryConfig,
   forecast: SimulationDataPoint[]
 ): { power: number; reason: string } {
+  // --- Blok 1: Maximale SoC-check ---
   if (current.soc >= config.maxSoc) {
     return { power: 0, reason: 'battery full' };
   }
 
-  // --- Blok: Vooruitkijken naar toekomstige tekorten en bepalen of laden nodig is ---
+  // --- Blok 2: Negatieve prijs-check ---
+  // Laad altijd maximaal als de consumptieprijs negatief is
+  if (current.consumptionPrice < 0) {
+    return {
+      power: config.maxChargeRate,
+      reason: 'negative price: charge as much as possible'
+    };
+  }
+
+  // --- Blok 3: Vooruitkijken naar toekomstige tekorten en bepalen of laden nodig is ---
   // Kijk 6 uur vooruit (24 kwartieren)
   const lookahead = forecast.slice(1, 25);
   const availableCapacity =
@@ -137,12 +156,12 @@ function shouldChargeNow(
   if (futureDeficit > 0) {
     return {
       power: Math.min(futureDeficit / 0.25, config.maxChargeRate),
-      reason: `Laad bij voor toekomstig tekort van ${futureDeficit.toFixed(2)} kWh (saldo komende 6 uur)`
+      reason: `charge for future deficit of ${futureDeficit.toFixed(2)} kWh (next 6h balance)`
     };
   }
-  // --- Einde blok: Vooruitkijken naar toekomstige tekorten ---
+  // --- Einde blok 3: Vooruitkijken naar toekomstige tekorten ---
 
-
+  // --- Blok 4: PV-overschot ---
   const pvSurplus = current.pvGeneration - current.consumption;
   if (pvSurplus > 0) {
     return {
@@ -151,13 +170,19 @@ function shouldChargeNow(
     };
   }
 
-  if (!futureDeficit) {
-    return { power: 0, reason: 'no future deficit, no pv surplus' };
-  }
-
-  return { power: config.maxChargeRate, reason: 'cheap energy available' };
+  return { power: 0, reason: 'no future deficit, no pv surplus' };
 }
 
+/**
+ * Bepaalt of de batterij nu moet ontladen, en zo ja, hoeveel vermogen.
+ * 
+ * @param currentSlot - Huidige tijdslot index
+ * @param current - Huidige simulatiepunt
+ * @param config - Batterijconfiguratie
+ * @param loadState - Of de load actief is (momenteel niet gebruikt)
+ * @param forecast - Array van toekomstige simulatiepunten (inclusief huidige)
+ * @returns { power: number, reason: string }
+ */
 function shouldDischargeNow(
   currentSlot: number,
   current: SimulationDataPoint,
@@ -165,58 +190,79 @@ function shouldDischargeNow(
   loadState: boolean,
   forecast: SimulationDataPoint[]
 ): { power: number; reason: string } {
-  if (current.soc <= config.minSoc) {
-    return { power: 0, reason: 'battery empty' };
+    // 0. Beschikbaarheid batterij-energie controleren
+    if (current.soc <= config.minSoc) {
+      return { power: 0, reason: 'battery empty' };
+    }
+  
+  // 1. Niet ontladen als de prijs negatief is
+  if (current.consumptionPrice < 0) {
+    return { power: 0, reason: 'discharging not allowed at negative price' };
   }
 
-  // Calculate what's needed: consumption minus PV production
-  let effectiveConsumption = current.consumption;
-  
-  // Add controllable load consumption when load is ON
-  if (loadState) {
-    effectiveConsumption += config.loadNominalPower;
-  }
-  
+  // 2. Bepaal huidig tekort (consumptie - PV)
+  const effectiveConsumption = current.consumption;
   const deficit = Math.max(0, effectiveConsumption - current.pvGeneration);
 
   if (deficit <= 0) {
     return { power: 0, reason: 'no deficit to cover' };
   }
 
-  // Determine energy that must remain for upcoming expensive consumption (3 hours)
-  const lookahead = forecast.slice(1, 13);
-  let futureDeficit = 0;
-  let expectedCharge = 0;
+  // 3. Kijk vooruit: reserveer energie voor dure uren in de komende 3 uur (12 slots)
+  const lookahead = forecast.slice(1, 13); // slots 1 t/m 12 na nu
+  let futureDeficit = 0;    // Totale verwachte dure tekorten (kWh)
+  let expectedCharge = 0;   // Verwachte toekomstige lading uit PV (kWh)
 
   for (const slot of lookahead) {
+    // 3a. Tel alleen tekorten bij als de prijs in de toekomst hoger is dan nu
     if (slot.consumptionPrice > current.consumptionPrice) {
-      const deficit = Math.max(0, slot.consumption - slot.pvForecast);
-      futureDeficit += deficit * 0.25;
+      const slotDeficit = Math.max(0, slot.consumption - slot.pvForecast);
+      futureDeficit += slotDeficit * 0.25;
     }
-
+    // 3b. Verwachte lading uit PV-overschot meenemen
     if (slot.pvForecast > slot.consumption) {
       const surplus = Math.min(slot.pvForecast - slot.consumption, config.maxChargeRate);
       expectedCharge += surplus * 0.25;
     }
   }
 
+  // 4. Bepaal hoeveel van de batterij nog bruikbaar is (boven minSoc)
   const availableCapacity = ((config.maxSoc - current.soc) / 100) * config.batteryCapacity;
+  // 5. Bepaal hoeveel energie we moeten reserveren voor toekomstige dure tekorten
+  //    (rekening houdend met verwachte lading uit PV)
   const futureNeed = Math.max(0, futureDeficit - Math.min(expectedCharge, availableCapacity));
 
+  // 6. Bepaal hoeveel energie we nu maximaal mogen ontladen
   const socEnergy = (current.soc / 100) * config.batteryCapacity;
   const minEnergy = (config.minSoc / 100) * config.batteryCapacity;
   const allowedEnergy = socEnergy - minEnergy - futureNeed;
 
+  // 7. Bepaal maximaal toelaatbaar ontlaadvermogen
   const maxPower = Math.min(deficit, config.maxDischargeRate, allowedEnergy / 0.25);
 
   if (maxPower <= 0) {
     return { power: 0, reason: 'reserve for future expensive consumption' };
   }
 
-  // Only discharge what's actually needed, up to allowed power
+  // 8. Ontlaad alleen wat nodig is, tot het maximum
   return { power: maxPower, reason: 'cover consumption' };
 }
 
+/**
+ * Bepaalt of de aanstuurbare load (apparaat) aan of uit moet zijn in het huidige tijdslot.
+ *
+ * Nieuwe logica:
+ * 1. Kijk vooruit tot aan de deadline en tel het aantal slots met PV-overschot >= activation power.
+ * 2. Bepaal hoeveel extra slots de load nog moet draaien volgens min runtime per dag.
+ * 3. Activeer de load in de goedkoopste tijdsloten van de dag als er nog slots nodig zijn.
+ *
+ * @param currentSlot - Index van het huidige tijdslot
+ * @param data - Array van alle simulatiepunten tot nu toe
+ * @param batteryPower - Huidige batterijvermogen (kW)
+ * @param config - Instellingen voor batterij en load
+ * @param current - Huidig simulatiepunt
+ * @returns { state: boolean, reason: string } - Of de load aan moet zijn en de reden
+ */
 function determineLoadState(
   currentSlot: number,
   data: SimulationDataPoint[],
@@ -224,8 +270,10 @@ function determineLoadState(
   config: BatteryConfig,
   current: SimulationDataPoint
 ): { state: boolean; reason: string } {
+  // Was de load in de vorige stap actief?
   const prevLoad = currentSlot > 0 ? data[currentSlot - 1].loadState : false;
 
+  // Hoe lang is de load al aaneengesloten actief?
   let activationRuntime = 0;
   if (prevLoad) {
     for (let i = currentSlot - 1; i >= 0 && data[i].loadState; i--) {
@@ -233,47 +281,121 @@ function determineLoadState(
     }
   }
 
-  let dailyRuntime = 0;
+  // Hoeveel uur is de load vandaag al actief geweest?
+  let runtimeTillNow = 0;
   for (let i = 0; i < currentSlot; i++) {
-    if (data[i].loadState) dailyRuntime += 0.25;
+    if (data[i].loadState) runtimeTillNow += 0.25;
   }
 
-  const oversupply = current.pvGeneration - current.consumption - Math.max(batteryPower, 0);
-  const gridImport = Math.max(0, current.consumption + Math.max(batteryPower, 0) - current.pvGeneration);
-  const needDailyRuntime =
-    current.time.getHours() >= config.loadRuntimeDeadlineHour &&
-    dailyRuntime < config.loadMinRuntimeDaily;
+  // Huidige tijd en deadline berekenen
+  const currentHour = current.time.getHours();
+  const currentMinute = current.time.getMinutes();
+  const slotsPerHour = 4;
+  const deadlineHour = config.loadRuntimeDeadlineHour;
+
+  // Bepaal de dag van vandaag (zodat we alleen naar vandaag kijken)
+  const today = new Date(current.time);
+  today.setHours(0, 0, 0, 0);
+
+  // Verzamel alle slots van vandaag tot aan de deadline
+  const slotsToday: { index: number; point: SimulationDataPoint }[] = [];
+  for (let i = 0; i < data.length; i++) {
+    const slotTime = data[i].time;
+    const slotHour = slotTime.getHours();
+    const slotMinute = slotTime.getMinutes();
+    // Alleen slots van vandaag
+    const slotDay = new Date(slotTime);
+    slotDay.setHours(0, 0, 0, 0);
+    if (slotDay.getTime() !== today.getTime()) continue;
+    // Alleen slots tot aan de deadline (laatste slot eindigt op deadlineHour - 0.25h)
+    if (slotHour < deadlineHour || (slotHour === deadlineHour && slotMinute === 0)) {
+      // slot mag meedoen
+      slotsToday.push({ index: i, point: data[i] });
+    }
+  }
+
+  // Kijk vooruit vanaf currentSlot tot aan de deadline
+  const futureSlots = slotsToday.filter(s => s.index >= currentSlot);
+
+  // 1. Tel het aantal slots met PV-overschot >= activation power
+  const pvOversupplySlots: number[] = [];
+  for (const { index, point } of futureSlots) {
+    // Bepaal oversupply na batterij (gebruik 0 voor batteryPower in toekomst)
+    const oversupply = point.pvGeneration - point.consumption - Math.max(0, 0);
+    if (oversupply >= config.loadActivationPower) {
+      pvOversupplySlots.push(index);
+    }
+  }
+
+  // 2. Bepaal hoeveel extra slots de load nog moet draaien volgens min runtime per dag
+  const minSlotsNeeded = Math.max(0, (config.loadMinRuntimeDaily - runtimeTillNow) / 0.25);
+
+  // 3. Selecteer de goedkoopste tijdsloten van vandaag tot aan de deadline
+  //    (exclusief slots waar load al aan stond)
+  //    We nemen alle slots van vandaag tot deadline, sorteren op prijs, en pakken de goedkoopste
+  //    die nog niet aan stonden, tot minSlotsNeeded is bereikt.
+  //    (Als pvOversupplySlots >= minSlotsNeeded, dan alleen die slots gebruiken.)
+
+  // Verzamel alle slots van vandaag tot deadline die nog niet voorbij zijn
+  const candidateSlots = futureSlots.map(({ index, point }) => ({
+    index,
+    price: point.consumptionPrice,
+    pvOversupply: (point.pvGeneration - point.consumption) >= config.loadActivationPower,
+  }));
+
+  // Sorteer op prijs (goedkoopste eerst)
+  candidateSlots.sort((a, b) => a.price - b.price);
+
+  // Selecteer slots met PV-overschot eerst, daarna goedkoopste slots
+  let selectedSlots: number[] = [];
+  if (pvOversupplySlots.length >= minSlotsNeeded) {
+    // Genoeg PV-overschot slots, kies de eerste minSlotsNeeded
+    selectedSlots = pvOversupplySlots.slice(0, minSlotsNeeded);
+  } else {
+    // Neem alle PV-overschot slots, vul aan met goedkoopste slots
+    selectedSlots = [...pvOversupplySlots];
+    for (const slot of candidateSlots) {
+      if (
+        selectedSlots.length >= minSlotsNeeded
+      ) break;
+      if (!selectedSlots.includes(slot.index)) {
+        selectedSlots.push(slot.index);
+      }
+    }
+  }
+
+  // Check 2: Moet de load aan omwille van minimale runtime per activatie?
+  const needMinActivation = prevLoad && activationRuntime < config.loadMinRuntimeActivation;
+
+  // Check 3: Moet de load aan omwille van negatieve consumptieprijs?
+  const negativeConsumptionPrice = current.consumptionPrice < 0;
 
   let load = prevLoad;
   let reason = '';
-  if (load) {
-    activationRuntime += 0.25;
-    if (activationRuntime >= config.loadMinRuntimeActivation && !needDailyRuntime) {
-      if (config.loadActivationPower >= config.loadNominalPower) {
-        if (oversupply < config.loadNominalPower) {
-          load = false;
-          reason = 'pv oversupply insufficient';
-        } else {
-          reason = 'pv oversupply';
-        }
-      } else {
-        if (gridImport > config.loadNominalPower - config.loadActivationPower) {
-          load = false;
-          reason = 'grid import too high';
-        } else {
-          reason = 'grid import low';
-        }
-      }
+
+  // Prioriteit 0: Indien de consumptieprijs negatief is, moet de load aan
+  if (negativeConsumptionPrice) {
+    load = true;
+    reason = 'negative consumption price';
+  }
+  // Prioriteit 1: Min runtime per activatie
+  else if (needMinActivation) {
+    load = true;
+    reason = 'minimum activation runtime';
+  }
+  // Prioriteit 2: Moet de load aan omwille van min runtime per dag, en is dit een geselecteerd slot?
+  else if (selectedSlots.includes(currentSlot) && minSlotsNeeded > 0) {
+    load = true;
+    if (pvOversupplySlots.includes(currentSlot)) {
+      reason = 'pv oversupply (selected for min daily runtime)';
     } else {
-      reason = needDailyRuntime ? 'daily runtime required' : 'minimum runtime';
+      reason = 'selected for min daily runtime (cheapest slot)';
     }
-  } else {
-    if (oversupply >= config.loadActivationPower || needDailyRuntime) {
-      load = true;
-      reason = needDailyRuntime ? 'daily runtime required' : 'pv oversupply';
-    } else {
-      reason = 'insufficient oversupply';
-    }
+  }
+  // Anders: load uit
+  else {
+    load = false;
+    reason = 'not selected for min daily runtime';
   }
 
   return { state: load, reason };

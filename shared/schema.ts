@@ -12,7 +12,7 @@ export const batteryConfigSchema = z.object({
   loadMinRuntimeDaily: z.number().min(0).default(2),
   loadRuntimeDeadlineHour: z.number().min(0).max(23).default(20),
   loadActivationPower: z.number().min(0).default(5),
-  loadNominalPower: z.number().min(0).default(10),
+  loadNominalPower: z.number().min(0).default(50),
 });
 
 // Simulation Data Point Schema
