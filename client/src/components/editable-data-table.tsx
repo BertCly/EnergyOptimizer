@@ -130,7 +130,7 @@ export function EditableDataTable({
                 <th className="pb-3 text-gray-300 font-medium">Battery Power (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">SoC (%)</th>
                 <th className="pb-3 text-gray-300 font-medium">Decision</th>
-                <th className="pb-3 text-gray-300 font-medium">Load</th>
+                <th className="pb-3 text-gray-300 font-medium">Extra load</th>
                 <th className="pb-3 text-gray-300 font-medium">Curtailment (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">Net Power (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">Cost (€)</th>
