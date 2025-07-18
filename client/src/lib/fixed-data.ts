@@ -92,7 +92,6 @@ export function generateFixedSimulationData(
       curtailment: 0,
       loadState: false,
       loadDecisionReason: '',
-      batteryDecision: 'hold',
       batteryDecisionReason: '',
       curtailmentDecisionReason: '',
     });

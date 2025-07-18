@@ -96,7 +96,6 @@ export function generateSimulationData(initialSoc: number, scenario: SimulationS
       curtailment: 0,
       loadState: false,
       loadDecisionReason: '',
-      batteryDecision: 'hold',
       batteryDecisionReason: '',
       curtailmentDecisionReason: '',
     });

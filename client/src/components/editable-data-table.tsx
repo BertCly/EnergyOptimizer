@@ -129,7 +129,6 @@ export function EditableDataTable({
                 <th className="pb-3 text-gray-300 font-medium">PV Forecast (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">Battery Power (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">SoC (%)</th>
-                <th className="pb-3 text-gray-300 font-medium">Decision</th>
                 <th className="pb-3 text-gray-300 font-medium">Extra load</th>
                 <th className="pb-3 text-gray-300 font-medium">Curtailment (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">Net Power (kW)</th>
@@ -180,12 +179,10 @@ export function EditableDataTable({
                       className="text-emerald-300"
                     />
                   </td>
-                  <td className="py-2 text-blue-400">{row.batteryPower.toFixed(1)}</td>
-                  <td className="py-2 text-purple-400">{row.soc.toFixed(1)}</td>
-                  <td className="py-2 text-cyan-400">
+                  <td className="py-2 text-blue-400">
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className="cursor-help">{row.batteryDecision || 'hold'}</span>
+                        <span className="cursor-help">{row.batteryPower.toFixed(1)}</span>
                       </TooltipTrigger>
                       <TooltipContent>
                         <div dangerouslySetInnerHTML={{ 
@@ -194,6 +191,7 @@ export function EditableDataTable({
                       </TooltipContent>
                     </Tooltip>
                   </td>
+                  <td className="py-2 text-purple-400">{row.soc.toFixed(1)}</td>
                   <td className="py-2 text-orange-400">
                     <Tooltip>
                       <TooltipTrigger asChild>

@@ -16,7 +16,6 @@ export function controlCycle(
     curtailment: 0,
     loadState: false,
     loadDecisionReason: '',
-    batteryDecision: 'hold',
     batteryDecisionReason: '',
     curtailmentDecisionReason: '',
   };
@@ -25,7 +24,6 @@ export function controlCycle(
   const chargeDecision = shouldChargeNow(currentSlot, current, config, forecast);
   if (chargeDecision.power > 0) {
     decision.batteryPower = chargeDecision.power;
-    decision.batteryDecision = 'charge';
     decision.batteryDecisionReason = chargeDecision.reason;
   }
   // Discharging logic
@@ -39,7 +37,6 @@ export function controlCycle(
     );
     if (dischargeDecision.power > 0) {
       decision.batteryPower = -dischargeDecision.power;
-      decision.batteryDecision = 'discharge';
       decision.batteryDecisionReason = `Charge decision: ${chargeDecision.reason}<br />Discharge decision: ${dischargeDecision.reason}`;
     } else {
       // when holding, pick reason from dischargeDecision or chargeDecision
