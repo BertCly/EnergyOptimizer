@@ -13,8 +13,10 @@ interface ChartsSectionProps {
 export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps) {
   const mainChartRef = useRef<HTMLCanvasElement>(null);
   const socChartRef = useRef<HTMLCanvasElement>(null);
+  const netChartRef = useRef<HTMLCanvasElement>(null);
   const mainChartInstance = useRef<any>(null);
   const socChartInstance = useRef<any>(null);
+  const netChartInstance = useRef<any>(null);
 
   const updateCharts = () => {
     if (mainChartInstance.current && socChartInstance.current && data.length > 0) {
@@ -26,9 +28,12 @@ export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps)
       const pvForecast = visibleData.map(d => d.pvForecast || 0);
       const batteryPower = visibleData.map(d => d.batteryPower);
       const soc = visibleData.map(d => d.soc);
+      const netPower = visibleData.map(d => d.netPower);
+      const cost = visibleData.map(d => d.cost);
 
       const mainChart = mainChartInstance.current;
       const socChart = socChartInstance.current;
+      const netChart = netChartInstance.current;
 
       if (mainChart && mainChart.data && mainChart.data.datasets && mainChart.data.datasets.length >= 5) {
         mainChart.data.labels = labels;
@@ -38,6 +43,13 @@ export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps)
         mainChart.data.datasets[3].data = pvForecast;
         mainChart.data.datasets[4].data = batteryPower;
         mainChart.update('none');
+      }
+
+      if (netChart && netChart.data && netChart.data.datasets && netChart.data.datasets.length >= 2) {
+        netChart.data.labels = labels;
+        netChart.data.datasets[0].data = netPower;
+        netChart.data.datasets[1].data = cost;
+        netChart.update('none');
       }
 
       if (socChart && socChart.data && socChart.data.datasets && socChart.data.datasets.length >= 1) {
@@ -305,6 +317,83 @@ export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps)
         }
       }
 
+      if (netChartRef.current && !netChartInstance.current) {
+        const ctx = netChartRef.current.getContext('2d');
+        if (ctx) {
+          netChartInstance.current = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: [],
+              datasets: [
+                {
+                  label: 'Net Power (kW)',
+                  data: [],
+                  borderColor: '#FACC15',
+                  backgroundColor: 'rgba(250, 204, 21, 0.1)',
+                  yAxisID: 'y',
+                  tension: 0.1,
+                },
+                {
+                  label: 'Cost (€)',
+                  data: [],
+                  borderColor: '#6366F1',
+                  backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                  yAxisID: 'y1',
+                  tension: 0.1,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: 'index', intersect: false },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  mode: 'index',
+                  intersect: false,
+                  backgroundColor: 'rgba(31, 41, 55, 0.95)',
+                  titleColor: '#F9FAFB',
+                  bodyColor: '#F9FAFB',
+                  borderColor: '#6B7280',
+                  borderWidth: 1,
+                  callbacks: {
+                    labelColor: function(context: any) {
+                      const datasetIndex = context.datasetIndex;
+                      const colors = ['#FACC15', '#6366F1'];
+                      return {
+                        borderColor: colors[datasetIndex] || '#9CA3AF',
+                        backgroundColor: colors[datasetIndex] || '#9CA3AF',
+                      };
+                    },
+                  },
+                },
+              },
+              scales: {
+                y: {
+                  type: 'linear',
+                  display: true,
+                  position: 'left',
+                  grid: { color: 'rgba(75, 85, 99, 0.3)' },
+                  ticks: { color: '#9CA3AF' },
+                },
+                y1: {
+                  type: 'linear',
+                  display: true,
+                  position: 'right',
+                  grid: { drawOnChartArea: false },
+                  ticks: { color: '#9CA3AF' },
+                },
+                x: {
+                  grid: { color: 'rgba(75, 85, 99, 0.3)' },
+                  ticks: { color: '#9CA3AF' },
+                },
+              },
+            },
+          });
+        }
+      }
+
       updateCharts();
     };
 
@@ -365,6 +454,29 @@ export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps)
         <CardContent>
           <div className="h-64 w-full">
             <canvas ref={socChartRef}></canvas>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-gray-800 border-gray-700">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg font-semibold text-gray-50">Net Power & Cost</CardTitle>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                <span className="text-sm text-gray-300">Net Power</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-indigo-500 rounded-full"></div>
+                <span className="text-sm text-gray-300">Cost</span>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="h-64 w-full">
+            <canvas ref={netChartRef}></canvas>
           </div>
         </CardContent>
       </Card>
