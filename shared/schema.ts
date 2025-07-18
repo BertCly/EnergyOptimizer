@@ -30,6 +30,7 @@ export const simulationDataPointSchema = z.object({
   cost: z.number(),
   curtailment: z.number().default(0),
   loadState: z.boolean().default(false),
+  loadDecisionReason: z.string().default(''),
   batteryDecision: z.string().default('hold'),
   batteryDecisionReason: z.string().default(''),
 });
@@ -39,6 +40,7 @@ export const controlDecisionSchema = z.object({
   batteryPower: z.number(),
   curtailment: z.number().default(0),
   loadState: z.boolean().default(false),
+  loadDecisionReason: z.string().default(''),
   batteryDecision: z.string().default('hold'),
   batteryDecisionReason: z.string().default(''),
 });

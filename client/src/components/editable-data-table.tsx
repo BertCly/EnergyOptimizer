@@ -130,7 +130,7 @@ export function EditableDataTable({
                 <th className="pb-3 text-gray-300 font-medium">Battery Power (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">SoC (%)</th>
                 <th className="pb-3 text-gray-300 font-medium">Decision</th>
-                <th className="pb-3 text-gray-300 font-medium">Relay</th>
+                <th className="pb-3 text-gray-300 font-medium">Load</th>
                 <th className="pb-3 text-gray-300 font-medium">Curtailment (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">Net Power (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">Cost (€)</th>
@@ -190,7 +190,14 @@ export function EditableDataTable({
                       <TooltipContent>{row.batteryDecisionReason}</TooltipContent>
                     </Tooltip>
                   </td>
-                  <td className="py-2 text-orange-400">{row.loadState ? 'ON' : 'OFF'}</td>
+                  <td className="py-2 text-orange-400">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help">{row.loadState ? 'ON' : 'OFF'}</span>
+                      </TooltipTrigger>
+                      <TooltipContent>{row.loadDecisionReason}</TooltipContent>
+                    </Tooltip>
+                  </td>
                   <td className="py-2 text-pink-400">{row.curtailment?.toFixed(1) || '0.0'}</td>
                   <td className="py-2 text-gray-300">{row.netPower.toFixed(1)}</td>
                   <td className="py-2 text-gray-300">
