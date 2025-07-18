@@ -11,11 +11,6 @@ export function controlCycle(
   // Get forecast data
   const forecast = data.slice(currentSlot, currentSlot + horizon);
 
-  // Find cheapest and most expensive slots
-  const cheapestSlots = getCheapestChargeSlots(forecast, current.soc, config, currentSlot);
-  const mostExpensiveSlots = getBestDischargeSlots(forecast, current.soc, config, currentSlot);
-  // console.log('Goedkoopste tijdslots:', cheapestSlots);
-
   let decision: ControlDecision = {
     batteryPower: 0,
     curtailment: 0,
@@ -25,7 +20,7 @@ export function controlCycle(
   };
 
   // Charging logic
-  const chargeDecision = shouldChargeNow(currentSlot, cheapestSlots, current, config, forecast);
+  const chargeDecision = shouldChargeNow(currentSlot, current, config, forecast);
   if (chargeDecision.power > 0) {
     decision.batteryPower = chargeDecision.power;
     decision.batteryDecision = 'charge';
@@ -35,7 +30,6 @@ export function controlCycle(
   else {
     const dischargeDecision = shouldDischargeNow(
       currentSlot,
-      mostExpensiveSlots,
       current,
       config,
       decision.loadState,
@@ -60,49 +54,10 @@ export function controlCycle(
   return decision;
 }
 
-function getCheapestChargeSlots(
-  forecast: SimulationDataPoint[],
-  currentSoc: number,
-  config: BatteryConfig,
-  startIndex: number
-): number[] {
-  if (currentSoc >= config.maxSoc) return [];
 
-  const sortedSlots = forecast
-    .map((slot, index) => ({
-      index: index + startIndex,
-      consumptionPrice: slot.consumptionPrice,
-    }))
-    .sort((a, b) => a.consumptionPrice - b.consumptionPrice);
-
-  // Return indices of cheapest 25% of slots
-  const numSlots = Math.ceil(sortedSlots.length * 0.25);
-  return sortedSlots.slice(0, numSlots).map((slot) => slot.index);
-}
-
-function getBestDischargeSlots(
-  forecast: SimulationDataPoint[],
-  currentSoc: number,
-  config: BatteryConfig,
-  startIndex: number
-): number[] {
-  if (currentSoc <= config.minSoc) return [];
-
-  const sortedSlots = forecast
-    .map((slot, index) => ({
-      index: index + startIndex,
-      injectionPrice: slot.injectionPrice,
-    }))
-    .sort((a, b) => b.injectionPrice - a.injectionPrice);
-
-  // Return indices of most expensive 25% of slots
-  const numSlots = Math.ceil(sortedSlots.length * 0.25);
-  return sortedSlots.slice(0, numSlots).map((slot) => slot.index);
-}
 
 function shouldChargeNow(
   currentSlot: number,
-  cheapestSlots: number[],
   current: SimulationDataPoint,
   config: BatteryConfig,
   forecast: SimulationDataPoint[]
@@ -193,9 +148,6 @@ function shouldChargeNow(
     };
   }
 
-  if (!cheapestSlots.includes(currentSlot)) {
-    return { power: 0, reason: 'not cheap slot, no pv surplus' };
-  }
   if (!futureDeficit) {
     return { power: 0, reason: 'no future deficit, no pv surplus' };
   }
@@ -205,15 +157,11 @@ function shouldChargeNow(
 
 function shouldDischargeNow(
   currentSlot: number,
-  mostExpensiveSlots: number[],
   current: SimulationDataPoint,
   config: BatteryConfig,
   loadState: boolean,
   forecast: SimulationDataPoint[]
 ): { power: number; reason: string } {
-  //if (!mostExpensiveSlots.includes(currentSlot)) {
-  //  return { power: 0, reason: 'not expensive slot' };
-  //}
   if (current.soc <= config.minSoc) {
     return { power: 0, reason: 'battery empty' };
   }
