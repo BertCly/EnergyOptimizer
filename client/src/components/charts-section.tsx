@@ -91,7 +91,7 @@ export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps)
               labels: [],
               datasets: [
                 {
-                  label: 'Price (€/kWh)',
+                  label: 'Consumption Price (€/kWh)',
                   data: [],
                   borderColor: '#F59E0B',
                   backgroundColor: 'rgba(245, 158, 11, 0.1)',
@@ -152,6 +152,10 @@ export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps)
                   bodyColor: '#F9FAFB',
                   borderColor: '#6B7280',
                   borderWidth: 1,
+                  filter: function(tooltipItem: any) {
+                    // Only show consumption price (dataset index 0) and other non-price datasets
+                    return tooltipItem.datasetIndex === 0 || tooltipItem.datasetIndex > 0;
+                  },
                   callbacks: {
                     labelColor: function(context: any) {
                       const datasetIndex = context.datasetIndex;
@@ -161,7 +165,18 @@ export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps)
                         backgroundColor: colors[datasetIndex] || '#9CA3AF',
                       };
                     },
-
+                    afterBody: function(context: any) {
+                      // Add injection price to tooltip
+                      const dataIndex = context[0].dataIndex;
+                      const injectionPrice = data[dataIndex]?.injectionPrice;
+                      if (injectionPrice !== undefined) {
+                        return [
+                          '',
+                          `Injection Price: €${injectionPrice.toFixed(3)}/kWh`
+                        ];
+                      }
+                      return [];
+                    }
                   }
                 },
               },
@@ -413,7 +428,7 @@ export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps)
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
-                <span className="text-sm text-gray-300">Price</span>
+                <span className="text-sm text-gray-300">Consumption Price</span>
               </div>
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-red-500 rounded-full"></div>

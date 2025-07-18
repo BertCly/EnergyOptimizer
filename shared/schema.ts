@@ -13,6 +13,8 @@ export const batteryConfigSchema = z.object({
   loadRuntimeDeadlineHour: z.number().min(0).max(23).default(20),
   loadActivationPower: z.number().min(0).default(5),
   loadNominalPower: z.number().min(0).default(50),
+  gridCapacityImportLimit: z.number().min(0).max(1000).default(200),
+  gridCapacityExportLimit: z.number().min(0).max(1000).default(200),
 });
 
 // Simulation Data Point Schema
@@ -33,6 +35,7 @@ export const simulationDataPointSchema = z.object({
   loadDecisionReason: z.string().default(''),
   batteryDecision: z.string().default('hold'),
   batteryDecisionReason: z.string().default(''),
+  curtailmentDecisionReason: z.string().default(''),
 });
 
 // Control Decision Schema
@@ -43,6 +46,7 @@ export const controlDecisionSchema = z.object({
   loadDecisionReason: z.string().default(''),
   batteryDecision: z.string().default('hold'),
   batteryDecisionReason: z.string().default(''),
+  curtailmentDecisionReason: z.string().default(''),
 });
 
 // Export types

@@ -18,6 +18,7 @@ export function controlCycle(
     loadDecisionReason: '',
     batteryDecision: 'hold',
     batteryDecisionReason: '',
+    curtailmentDecisionReason: '',
   };
 
   // Charging logic
@@ -39,10 +40,10 @@ export function controlCycle(
     if (dischargeDecision.power > 0) {
       decision.batteryPower = -dischargeDecision.power;
       decision.batteryDecision = 'discharge';
-      decision.batteryDecisionReason = `Charge decision: ${chargeDecision.reason}\nDischarge decision: ${dischargeDecision.reason}`;
+      decision.batteryDecisionReason = `Charge decision: ${chargeDecision.reason}<br />Discharge decision: ${dischargeDecision.reason}`;
     } else {
       // when holding, pick reason from dischargeDecision or chargeDecision
-      decision.batteryDecisionReason = `Charge decision: ${chargeDecision.reason}\nDischarge decision: ${dischargeDecision.reason}`;
+      decision.batteryDecisionReason = `Charge decision: ${chargeDecision.reason}<br />Discharge decision: ${dischargeDecision.reason}`;
     }
   }
 
@@ -52,7 +53,12 @@ export function controlCycle(
   decision.loadDecisionReason = loadDecision.reason;
 
   // PV curtailment logic
-  decision.curtailment = calculatePvCurtailment(current, decision, config);
+  const curtailmentResult = calculatePvCurtailment(current, decision, config);
+  decision.curtailment = curtailmentResult.curtailment;
+  decision.curtailmentDecisionReason = curtailmentResult.reason;
+
+  // Apply grid capacity limits
+  decision = applyGridCapacityLimits(current, decision, config);
 
   return decision;
 }
@@ -140,11 +146,6 @@ function shouldChargeNow(
       // Houd rekening met wat reeds in de batterij zit: bereken hoeveel extra er nog moet worden opgeladen
       // Beschikbare energie in batterij (boven minSoc)
       const energyInBattery = ((current.soc - config.minSoc) / 100) * config.batteryCapacity;
-
-      const utc2Time = new Date(current.time.getTime() + 2 * 60 * 60 * 1000);
-      console.log(
-        `${utc2Time.toISOString()} totalDeficit: ${totalDeficit.toFixed(4)}, availableCapacity: ${availableCapacity.toFixed(4)}, energyInBattery: ${energyInBattery.toFixed(4)}`
-      );
 
       // Enkel bijladen tot er genoeg in de batterij zit voor het toekomstige tekort
       // Bepaal extraNeeded als het minimum van (totalDeficit - energyInBattery) en availableCapacity, maar nooit negatief
@@ -405,9 +406,9 @@ function calculatePvCurtailment(
   current: SimulationDataPoint,
   decision: ControlDecision,
   config: BatteryConfig
-): number {
+): { curtailment: number; reason: string } {
   if (current.consumptionPrice < 0) {
-    return current.pvGeneration;
+    return { curtailment: current.pvGeneration, reason: 'negative consumption price' };
   }
 
   if (current.injectionPrice < 0) {
@@ -416,8 +417,107 @@ function calculatePvCurtailment(
       effectiveConsumption += config.loadNominalPower;
     }
     const excess = Math.max(0, current.pvGeneration - effectiveConsumption);
-    return excess;
+    return { curtailment: excess, reason: 'negative injection price' };
   }
 
-  return 0;
+  return { curtailment: 0, reason: 'no curtailment needed' };
+}
+
+/**
+ * Applies grid capacity limits to the control decision.
+ * Ensures that the total power flow (consumption + battery + load - PV + curtailment) 
+ * respects the import and export limits.
+ * 
+ * @param current - Current simulation data point
+ * @param decision - Control decision to be adjusted
+ * @param config - Battery configuration including grid limits
+ * @returns Adjusted control decision respecting grid limits
+ */
+function applyGridCapacityLimits(
+  current: SimulationDataPoint,
+  decision: ControlDecision,
+  config: BatteryConfig
+): ControlDecision {
+  const adjustedDecision = { ...decision };
+
+  // Calculate total power flow to/from grid
+  // Positive = importing from grid, Negative = exporting to grid
+  const loadPower = decision.loadState ? config.loadNominalPower : 0;
+  const totalPowerFlow = current.consumption + loadPower + decision.batteryPower - current.pvGeneration + decision.curtailment;
+
+  // If importing from grid (positive flow)
+  if (totalPowerFlow > 0) {
+    if (totalPowerFlow > config.gridCapacityImportLimit) {
+      // Need to reduce import by increasing local generation or reducing consumption
+      const excessImport = totalPowerFlow - config.gridCapacityImportLimit;
+      
+      // First, try to reduce battery charging (if charging)
+      if (decision.batteryPower > 0) {
+        const batteryReduction = Math.min(excessImport, decision.batteryPower);
+        adjustedDecision.batteryPower -= batteryReduction;
+        adjustedDecision.batteryDecisionReason += `<br />Reduced charging by ${batteryReduction.toFixed(2)} kW due to import limit`;
+      }
+      
+      // If still exceeding, try to turn off load (if on)
+      const totalPowerFlow2 = current.consumption + loadPower + adjustedDecision.batteryPower - current.pvGeneration + adjustedDecision.curtailment;
+      if (decision.loadState && totalPowerFlow2 > config.gridCapacityImportLimit) {
+        adjustedDecision.loadState = false;
+        adjustedDecision.loadDecisionReason += `<br />Turned off load due to import limit`;
+      }
+      
+      // If still exceeding, try to decrease curtailment (i.e., allow more PV injection), but not below 0
+      const totalPowerFlow3 = current.consumption + loadPower + adjustedDecision.batteryPower - current.pvGeneration + adjustedDecision.curtailment;
+      const remainingExcess = totalPowerFlow3 - config.gridCapacityImportLimit;
+      if (remainingExcess > 0 && adjustedDecision.curtailment > 0) {
+        // We can reduce curtailment by at most the current curtailment value, but not below 0
+        const curtailmentDecrease = Math.min(remainingExcess, adjustedDecision.curtailment);
+        adjustedDecision.curtailment -= curtailmentDecrease;
+        // Update curtailment decision reason
+        adjustedDecision.curtailmentDecisionReason += `<br />Decreased curtailment by ${curtailmentDecrease.toFixed(2)} kW due to import limit`;
+      }
+    }
+  }
+  // If exporting to grid (negative flow)
+  else if (totalPowerFlow < 0) {
+    const exportPower = Math.abs(totalPowerFlow);
+    if (exportPower > config.gridCapacityExportLimit) {
+      // Need to reduce export by increasing local consumption or reducing generation
+      const excessExport = exportPower - config.gridCapacityExportLimit;
+
+      // First, try to increase battery charging (if not already at max charge rate)
+      if (adjustedDecision.batteryPower < config.maxChargeRate) {
+        const availableChargeCapacity = config.maxChargeRate - adjustedDecision.batteryPower;
+        const batteryIncrease = Math.min(excessExport, availableChargeCapacity);
+       adjustedDecision.batteryPower += batteryIncrease;
+        adjustedDecision.batteryDecisionReason += `<br />Increased charging by ${batteryIncrease.toFixed(2)} kW due to export limit`;
+      }
+
+      // Recalculate total power flow after battery adjustment
+      const loadPower2 = adjustedDecision.loadState ? config.loadNominalPower : 0;
+      const totalPowerFlow2 = current.consumption + loadPower2 + adjustedDecision.batteryPower - current.pvGeneration + adjustedDecision.curtailment;
+      const exportPower2 = Math.abs(Math.min(0, totalPowerFlow2));
+
+      // If still exceeding, try to turn on load (if off)
+      if (!adjustedDecision.loadState && exportPower2 > config.gridCapacityExportLimit) {
+        adjustedDecision.loadState = true;
+        adjustedDecision.loadDecisionReason += `<br />Turned on load due to export limit`;
+      }
+
+      // Recalculate total power flow after load adjustment
+      const loadPower3 = adjustedDecision.loadState ? config.loadNominalPower : 0;
+      const totalPowerFlow3 = current.consumption + loadPower3 + adjustedDecision.batteryPower - current.pvGeneration + adjustedDecision.curtailment;
+      const exportPower3 = Math.abs(Math.min(0, totalPowerFlow3));
+      const remainingExcess = exportPower3 - config.gridCapacityExportLimit;
+
+      // If still exceeding, increase curtailment, but only up to current PV generation
+      if (remainingExcess > 0) {
+        const maxAdditionalCurtailment = Math.max(0, current.pvGeneration - adjustedDecision.curtailment);
+        const curtailmentIncrease = Math.min(remainingExcess, maxAdditionalCurtailment);
+        adjustedDecision.curtailment += curtailmentIncrease;
+        adjustedDecision.curtailmentDecisionReason += `<br />Increased curtailment by ${curtailmentIncrease.toFixed(2)} kW due to export limit`;
+      }
+    }
+  }
+  
+  return adjustedDecision;
 }

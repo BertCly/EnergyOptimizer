@@ -23,6 +23,7 @@ export function ConfigurationPanel({ config, onConfigChange, scenario, onScenari
   const [openBattery, setOpenBattery] = useState(false)
   const [openLimits, setOpenLimits] = useState(false)
   const [openLoad, setOpenLoad] = useState(false)
+  const [openGrid, setOpenGrid] = useState(false)
 
   const updateConfig = (field: keyof BatteryConfig, value: number) => {
     onConfigChange({
@@ -55,6 +56,7 @@ export function ConfigurationPanel({ config, onConfigChange, scenario, onScenari
                 <option value="variablePv">Variable PV</option>
                 <option value="startupPeak">Workday startup peak</option>
                 <option value="lowPv">Low PV yield</option>
+                <option value="priceSpike">Price spike (12:00-14:00)</option>
                 <option value="random">Random</option>
               </select>
             </CardContent>
@@ -169,23 +171,6 @@ export function ConfigurationPanel({ config, onConfigChange, scenario, onScenari
               className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
             />
           </div>
-        </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
-
-      <Collapsible open={openLimits} onOpenChange={setOpenLimits}>
-        <Card className="bg-gray-800 border-gray-700">
-          <CardHeader className="flex items-center justify-between">
-            <CardTitle className="text-lg font-semibold text-gray-50">Operating Limits</CardTitle>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-gray-400">
-                <ChevronDown className={cn("h-4 w-4 transition-transform", openLimits ? "rotate-180" : "")} />
-              </Button>
-            </CollapsibleTrigger>
-          </CardHeader>
-          <CollapsibleContent>
-            <CardContent className="space-y-4">
           <div>
             <div className="flex items-center space-x-2">
               <Label htmlFor="minSoc" className="text-sm font-medium text-gray-300">
@@ -366,6 +351,71 @@ export function ConfigurationPanel({ config, onConfigChange, scenario, onScenari
               max="23"
               value={config.loadRuntimeDeadlineHour}
               onChange={(e) => updateConfig('loadRuntimeDeadlineHour', parseFloat(e.target.value))}
+              className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      <Collapsible open={openGrid} onOpenChange={setOpenGrid}>
+        <Card className="bg-gray-800 border-gray-700">
+          <CardHeader className="flex items-center justify-between">
+            <CardTitle className="text-lg font-semibold text-gray-50">Grid Capacity</CardTitle>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-gray-400">
+                <ChevronDown className={cn("h-4 w-4 transition-transform", openGrid ? "rotate-180" : "")} />
+              </Button>
+            </CollapsibleTrigger>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent className="space-y-4">
+          <div>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="gridCapacityImportLimit" className="text-sm font-medium text-gray-300">
+                Import Limit (kW)
+              </Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Maximum power that can be imported from the grid</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Input
+              id="gridCapacityImportLimit"
+              type="number"
+              min="0"
+              max="1000"
+              value={config.gridCapacityImportLimit}
+              onChange={(e) => updateConfig('gridCapacityImportLimit', parseFloat(e.target.value))}
+              className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="gridCapacityExportLimit" className="text-sm font-medium text-gray-300">
+                Export Limit (kW)
+              </Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Maximum power that can be exported to the grid</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Input
+              id="gridCapacityExportLimit"
+              type="number"
+              min="0"
+              max="1000"
+              value={config.gridCapacityExportLimit}
+              onChange={(e) => updateConfig('gridCapacityExportLimit', parseFloat(e.target.value))}
               className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
             />
           </div>

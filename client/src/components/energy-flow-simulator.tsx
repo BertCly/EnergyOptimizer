@@ -42,6 +42,7 @@ export function EnergyFlowSimulator() {
       current.loadDecisionReason = decision.loadDecisionReason;
       current.batteryDecision = decision.batteryDecision;
       current.batteryDecisionReason = decision.batteryDecisionReason;
+      current.curtailmentDecisionReason = decision.curtailmentDecisionReason;
 
       // Account for controllable load increasing consumption when ON
       let effectiveConsumption = current.consumption;

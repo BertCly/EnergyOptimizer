@@ -187,7 +187,11 @@ export function EditableDataTable({
                       <TooltipTrigger asChild>
                         <span className="cursor-help">{row.batteryDecision || 'hold'}</span>
                       </TooltipTrigger>
-                      <TooltipContent>{row.batteryDecisionReason}</TooltipContent>
+                      <TooltipContent>
+                        <div dangerouslySetInnerHTML={{ 
+                          __html: row.batteryDecisionReason
+                        }} />
+                      </TooltipContent>
                     </Tooltip>
                   </td>
                   <td className="py-2 text-orange-400">
@@ -195,10 +199,25 @@ export function EditableDataTable({
                       <TooltipTrigger asChild>
                         <span className="cursor-help">{row.loadState ? 'ON' : 'OFF'}</span>
                       </TooltipTrigger>
-                      <TooltipContent>{row.loadDecisionReason}</TooltipContent>
+                      <TooltipContent>
+                        <div dangerouslySetInnerHTML={{ 
+                          __html: row.loadDecisionReason
+                        }} />
+                      </TooltipContent>
                     </Tooltip>
                   </td>
-                  <td className="py-2 text-pink-400">{row.curtailment?.toFixed(1) || '0.0'}</td>
+                  <td className="py-2 text-pink-400">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help">{row.curtailment?.toFixed(1) || '0.0'}</span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div dangerouslySetInnerHTML={{ 
+                          __html: row.curtailmentDecisionReason || 'No curtailment reason available'
+                        }} />
+                      </TooltipContent>
+                    </Tooltip>
+                  </td>
                   <td className="py-2 text-gray-300">{row.netPower.toFixed(1)}</td>
                   <td className="py-2 text-gray-300">
                     <Tooltip>

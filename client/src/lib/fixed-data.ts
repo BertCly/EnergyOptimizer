@@ -94,6 +94,7 @@ export function generateFixedSimulationData(
       loadDecisionReason: '',
       batteryDecision: 'hold',
       batteryDecisionReason: '',
+      curtailmentDecisionReason: '',
     });
   }
 

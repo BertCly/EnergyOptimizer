@@ -6,6 +6,7 @@ export type SimulationScenario =
   | 'variablePv'
   | 'startupPeak'
   | 'lowPv'
+  | 'priceSpike'
   | 'random';
 
 export function generateSimulationData(initialSoc: number, scenario: SimulationScenario, slots: number = 48): SimulationDataPoint[] {
@@ -22,6 +23,15 @@ export function generateSimulationData(initialSoc: number, scenario: SimulationS
   } else if (scenario === 'negativeDayPrice') {
     for (let h = 9; h <= 16; h++) {
       priceSchedule[h] = { injection: -120, consumption: -40 };
+    }
+  } else if (scenario === 'priceSpike') {
+    // Normal prices for most hours
+    for (let h = 0; h < 24; h++) {
+      priceSchedule[h] = { injection: 50, consumption: 150 };
+    }
+    // Very high prices for a short period (12:00-14:00)
+    for (let h = 12; h <= 13; h++) {
+      priceSchedule[h] = { injection: 800, consumption: 1200 };
     }
   } else if (scenario === 'random') {
     for (let h = 0; h < 24; h++) {
@@ -88,6 +98,7 @@ export function generateSimulationData(initialSoc: number, scenario: SimulationS
       loadDecisionReason: '',
       batteryDecision: 'hold',
       batteryDecisionReason: '',
+      curtailmentDecisionReason: '',
     });
   }
 
