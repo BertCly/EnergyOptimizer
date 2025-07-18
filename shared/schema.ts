@@ -11,7 +11,7 @@ export const batteryConfigSchema = z.object({
   loadMinRuntimeActivation: z.number().min(0).default(0.5),
   loadMinRuntimeDaily: z.number().min(0).default(2),
   loadRuntimeDeadlineHour: z.number().min(0).max(23).default(20),
-  loadActivationPower: z.number().min(0).default(5),
+  loadActivationPower: z.number().min(0).default(40),
   loadNominalPower: z.number().min(0).default(50),
   gridCapacityImportLimit: z.number().min(0).max(1000).default(200),
   gridCapacityExportLimit: z.number().min(0).max(1000).default(200),
