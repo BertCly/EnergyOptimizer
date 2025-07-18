@@ -15,6 +15,7 @@ export function controlCycle(
     batteryPower: 0,
     curtailment: 0,
     loadState: false,
+    loadDecisionReason: '',
     batteryDecision: 'hold',
     batteryDecisionReason: '',
   };
@@ -46,7 +47,9 @@ export function controlCycle(
   }
 
   // Controllable load logic
-  decision.loadState = determineLoadState(currentSlot, data, decision.batteryPower, config, current);
+  const loadDecision = determineLoadState(currentSlot, data, decision.batteryPower, config, current);
+  decision.loadState = loadDecision.state;
+  decision.loadDecisionReason = loadDecision.reason;
 
   // PV curtailment logic
   decision.curtailment = calculatePvCurtailment(current, decision, config);
@@ -220,7 +223,7 @@ function determineLoadState(
   batteryPower: number,
   config: BatteryConfig,
   current: SimulationDataPoint
-): boolean {
+): { state: boolean; reason: string } {
   const prevLoad = currentSlot > 0 ? data[currentSlot - 1].loadState : false;
 
   let activationRuntime = 0;
@@ -242,22 +245,38 @@ function determineLoadState(
     dailyRuntime < config.loadMinRuntimeDaily;
 
   let load = prevLoad;
+  let reason = '';
   if (load) {
     activationRuntime += 0.25;
     if (activationRuntime >= config.loadMinRuntimeActivation && !needDailyRuntime) {
       if (config.loadActivationPower >= config.loadNominalPower) {
-        if (oversupply < config.loadNominalPower) load = false;
+        if (oversupply < config.loadNominalPower) {
+          load = false;
+          reason = 'pv oversupply insufficient';
+        } else {
+          reason = 'pv oversupply';
+        }
       } else {
-        if (gridImport > config.loadNominalPower - config.loadActivationPower) load = false;
+        if (gridImport > config.loadNominalPower - config.loadActivationPower) {
+          load = false;
+          reason = 'grid import too high';
+        } else {
+          reason = 'grid import low';
+        }
       }
+    } else {
+      reason = needDailyRuntime ? 'daily runtime required' : 'minimum runtime';
     }
   } else {
     if (oversupply >= config.loadActivationPower || needDailyRuntime) {
       load = true;
+      reason = needDailyRuntime ? 'daily runtime required' : 'pv oversupply';
+    } else {
+      reason = 'insufficient oversupply';
     }
   }
 
-  return load;
+  return { state: load, reason };
 }
 
 function calculatePvCurtailment(

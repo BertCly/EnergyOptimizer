@@ -85,6 +85,7 @@ export function generateSimulationData(initialSoc: number, scenario: SimulationS
       cost: 0,
       curtailment: 0,
       loadState: false,
+      loadDecisionReason: '',
       batteryDecision: 'hold',
       batteryDecisionReason: '',
     });

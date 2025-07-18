@@ -39,17 +39,19 @@ export function EnergyFlowSimulator() {
       current.batteryPower = decision.batteryPower;
       current.curtailment = decision.curtailment;
       current.loadState = decision.loadState;
+      current.loadDecisionReason = decision.loadDecisionReason;
       current.batteryDecision = decision.batteryDecision;
       current.batteryDecisionReason = decision.batteryDecisionReason;
-      
+
       // Account for controllable load increasing consumption when ON
       let effectiveConsumption = current.consumption;
       if (current.loadState) {
         effectiveConsumption += config.loadNominalPower;
+        current.consumption += config.loadNominalPower;
       }
       
       // Calculate net power (positive = from grid, negative = to grid)
-      current.netPower = effectiveConsumption - current.pvGeneration + current.batteryPower;
+      current.netPower = effectiveConsumption + current.batteryPower - current.pvGeneration - current.curtailment;
       
       // Calculate cost for this interval (15 minutes = 0.25 hours)
       const pricePerKWh = current.netPower >= 0 ? current.consumptionPrice : current.injectionPrice;
