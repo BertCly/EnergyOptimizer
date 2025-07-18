@@ -188,17 +188,18 @@ function shouldDischargeNow(
   loadState: boolean,
   forecast: SimulationDataPoint[]
 ): { power: number; reason: string } {
-    // 0. Beschikbaarheid batterij-energie controleren
-    if (current.soc <= config.minSoc) {
-      return { power: 0, reason: 'battery empty' };
-    }
-  
+  // 0. Beschikbaarheid batterij-energie controleren
+  if (current.soc <= config.minSoc) {
+    return { power: 0, reason: 'battery empty' };
+  }
+
   // 1. Niet ontladen als de prijs negatief is
   if (current.consumptionPrice < 0) {
     return { power: 0, reason: 'discharging not allowed at negative price' };
   }
 
-  // 2. Bepaal huidig tekort (consumptie - PV)
+  // --- Blok 3: Bepaal huidig tekort en reserveer voor toekomstige dure uren ---
+  // Bepaal huidig tekort (consumptie - PV)
   const effectiveConsumption = current.consumption;
   const deficit = Math.max(0, effectiveConsumption - current.pvGeneration);
 
@@ -206,44 +207,47 @@ function shouldDischargeNow(
     return { power: 0, reason: 'no deficit to cover' };
   }
 
-  // 3. Kijk vooruit: reserveer energie voor dure uren in de komende 3 uur (12 slots)
+  // Kijk vooruit: reserveer energie voor dure uren in de komende 3 uur (12 slots)
   const lookahead = forecast.slice(1, 13); // slots 1 t/m 12 na nu
   let futureDeficit = 0;    // Totale verwachte dure tekorten (kWh)
   let expectedCharge = 0;   // Verwachte toekomstige lading uit PV (kWh)
 
   for (const slot of lookahead) {
-    // 3a. Tel alleen tekorten bij als de prijs in de toekomst hoger is dan nu
+    // Tel alleen tekorten bij als de prijs in de toekomst hoger is dan nu
     if (slot.consumptionPrice > current.consumptionPrice) {
       const slotDeficit = Math.max(0, slot.consumption - slot.pvForecast);
       futureDeficit += slotDeficit * 0.25;
     }
-    // 3b. Verwachte lading uit PV-overschot meenemen
+    // Verwachte lading uit PV-overschot meenemen
     if (slot.pvForecast > slot.consumption) {
       const surplus = Math.min(slot.pvForecast - slot.consumption, config.maxChargeRate);
       expectedCharge += surplus * 0.25;
     }
   }
 
-  // 4. Bepaal hoeveel van de batterij nog bruikbaar is (boven minSoc)
+  // Bepaal hoeveel van de batterij nog bruikbaar is (boven minSoc)
   const availableCapacity = ((config.maxSoc - current.soc) / 100) * config.batteryCapacity;
-  // 5. Bepaal hoeveel energie we moeten reserveren voor toekomstige dure tekorten
+  // Bepaal hoeveel energie we moeten reserveren voor toekomstige dure tekorten
   //    (rekening houdend met verwachte lading uit PV)
   const futureNeed = Math.max(0, futureDeficit - Math.min(expectedCharge, availableCapacity));
 
-  // 6. Bepaal hoeveel energie we nu maximaal mogen ontladen
+  // Bepaal hoeveel energie we nu maximaal mogen ontladen
   const socEnergy = (current.soc / 100) * config.batteryCapacity;
   const minEnergy = (config.minSoc / 100) * config.batteryCapacity;
   const allowedEnergy = socEnergy - minEnergy - futureNeed;
 
-  // 7. Bepaal maximaal toelaatbaar ontlaadvermogen
+  // Bepaal maximaal toelaatbaar ontlaadvermogen
   const maxPower = Math.min(deficit, config.maxDischargeRate, allowedEnergy / 0.25);
 
   if (maxPower <= 0) {
     return { power: 0, reason: 'reserve for future expensive consumption' };
   }
 
-  // 8. Ontlaad alleen wat nodig is, tot het maximum
-  return { power: maxPower, reason: 'cover consumption' };
+  // Ontlaad alleen wat nodig is, tot het maximum
+  return { 
+    power: maxPower, 
+    reason: `cover consumption (deficit: ${deficit.toFixed(2)} kW, allowed: ${allowedEnergy.toFixed(2)} kWh, futureNeed: ${futureNeed.toFixed(2)} kWh)`
+  };
 }
 
 /**
