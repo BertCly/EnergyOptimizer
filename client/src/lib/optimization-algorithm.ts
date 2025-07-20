@@ -198,6 +198,35 @@ function shouldDischargeNow(
     return { power: 0, reason: 'discharging not allowed at negative price' };
   }
 
+  // --- NIEUW: Kijk of er in de komende twee tijdslots een negatieve consumptieprijs aankomt ---
+  // EN de injectieprijs is nu positief
+  // if (
+  //   forecast.length > 2 &&
+  //   (forecast[1].consumptionPrice < 0 || forecast[2].consumptionPrice < 0) &&
+  //   current.injectionPrice > 0
+  // ) {
+  //   // Bereken hoeveel energie er uit de batterij kan tot minSoc
+  //   const socEnergy = (current.soc / 100) * config.batteryCapacity;
+  //   const minEnergy = (config.minSoc / 100) * config.batteryCapacity;
+  //   const allowedEnergy = socEnergy - minEnergy;
+  //   // Ontlaad alles wat kan in dit slot
+  //   const maxDischarge = Math.min(config.maxDischargeRate, allowedEnergy / 0.25);
+  //   if (maxDischarge > 0) {
+  //     // Geef aan in welke slot de negatieve prijs zit
+  //     const negSlot = forecast[1].consumptionPrice < 0 ? 1 : 2;
+  //     return {
+  //       power: maxDischarge,
+  //       reason: `discharge fully before negative consumption price (slot +${negSlot}), injection price now positive`
+  //     };
+  //   } else {
+  //     const negSlot = forecast[1].consumptionPrice < 0 ? 1 : 2;
+  //     return {
+  //       power: 0,
+  //       reason: `no energy available to discharge before negative consumption price (slot +${negSlot})`
+  //     };
+  //   }
+  // }
+
   // --- Blok 3: Bepaal huidig tekort en reserveer voor toekomstige dure uren ---
   // Bepaal huidig tekort (consumptie - PV)
   const effectiveConsumption = current.consumption;
