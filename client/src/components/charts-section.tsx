@@ -1,6 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SimulationDataPoint } from "@shared/schema";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Button } from "@/components/ui/button";
+import { ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 import { SiteEnergyConfig } from "@shared/schema";
 
@@ -14,9 +18,100 @@ export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps)
   const mainChartRef = useRef<HTMLCanvasElement>(null);
   const socChartRef = useRef<HTMLCanvasElement>(null);
   const netChartRef = useRef<HTMLCanvasElement>(null);
+  const pvInverterChartRef = useRef<HTMLCanvasElement>(null);
   const mainChartInstance = useRef<any>(null);
   const socChartInstance = useRef<any>(null);
   const netChartInstance = useRef<any>(null);
+  const pvInverterChartInstance = useRef<any>(null);
+  const [pvInverterChartOpen, setPvInverterChartOpen] = useState(false);
+
+  const initPvInverterChart = async () => {
+    if (!pvInverterChartRef.current || pvInverterChartInstance.current) return;
+    
+    const Chart = (await import('chart.js/auto')).default;
+    const ctx = pvInverterChartRef.current.getContext('2d');
+    if (ctx) {
+      // Generate colors for each inverter
+      const colors = [
+        '#10B981', '#059669', '#047857', '#065f46', '#064e3b',
+        '#3B82F6', '#2563EB', '#1D4ED8', '#1E40AF', '#1E3A8A',
+        '#8B5CF6', '#7C3AED', '#6D28D9', '#5B21B6', '#4C1D95',
+        '#F59E0B', '#D97706', '#B45309', '#92400E', '#78350F'
+      ];
+
+      const datasets = config.pvInverters.map((inverter, index) => ({
+        label: `PV Inverter ${index + 1} (${inverter.capacity}kW)`,
+        data: [],
+        borderColor: colors[index % colors.length],
+        backgroundColor: `${colors[index % colors.length]}20`,
+        tension: 0.1,
+        fill: false,
+      }));
+
+      pvInverterChartInstance.current = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets,
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { 
+              display: true,
+              position: 'top' as const,
+              labels: {
+                color: '#9CA3AF',
+                usePointStyle: true,
+                padding: 20,
+              }
+            },
+            tooltip: {
+              mode: 'index',
+              intersect: false,
+              backgroundColor: 'rgba(31, 41, 55, 0.95)',
+              titleColor: '#F9FAFB',
+              bodyColor: '#F9FAFB',
+              borderColor: '#6B7280',
+              borderWidth: 1,
+              callbacks: {
+                labelColor: function(context: any) {
+                  const datasetIndex = context.datasetIndex;
+                  return {
+                    borderColor: colors[datasetIndex % colors.length] || '#9CA3AF',
+                    backgroundColor: colors[datasetIndex % colors.length] || '#9CA3AF',
+                  };
+                },
+              },
+            },
+          },
+          scales: {
+            y: {
+              type: 'linear',
+              display: true,
+              position: 'left',
+              title: {
+                display: true,
+                text: 'Power (kW)',
+                color: '#9CA3AF',
+              },
+              grid: { color: 'rgba(75, 85, 99, 0.3)' },
+              ticks: { color: '#9CA3AF' },
+            },
+            x: {
+              grid: { color: 'rgba(75, 85, 99, 0.3)' },
+              ticks: { color: '#9CA3AF' },
+            },
+          },
+        },
+      });
+      
+      // Update the chart with current data
+      updateCharts();
+    }
+  };
 
   const updateCharts = () => {
     if (mainChartInstance.current && socChartInstance.current && data.length > 0) {
@@ -34,6 +129,7 @@ export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps)
       const mainChart = mainChartInstance.current;
       const socChart = socChartInstance.current;
       const netChart = netChartInstance.current;
+      const pvInverterChart = pvInverterChartInstance.current;
 
       if (mainChart && mainChart.data && mainChart.data.datasets && mainChart.data.datasets.length >= 5) {
         mainChart.data.labels = labels;
@@ -65,6 +161,24 @@ export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps)
         }
         socChart.update('none');
       }
+
+      // Update PV inverter chart
+      if (pvInverterChart && pvInverterChart.data && pvInverterChart.data.datasets) {
+        pvInverterChart.data.labels = labels;
+        
+        // Update datasets for each inverter
+        config.pvInverters.forEach((inverter, index) => {
+          if (pvInverterChart.data.datasets[index]) {
+            const inverterData = visibleData.map(d => {
+              const inverterGeneration = d.pvInverterGenerations.find(gen => gen.inverterId === inverter.id);
+              return inverterGeneration ? inverterGeneration.generation : 0;
+            });
+            pvInverterChart.data.datasets[index].data = inverterData;
+          }
+        });
+        
+        pvInverterChart.update('none');
+      }
     }
   };
 
@@ -91,7 +205,7 @@ export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps)
               labels: [],
               datasets: [
                 {
-                  label: 'Consumption Price (€/kWh)',
+                  label: 'Consumption Price (€/MWh)',
                   data: [],
                   borderColor: '#F59E0B',
                   backgroundColor: 'rgba(245, 158, 11, 0.1)',
@@ -172,7 +286,7 @@ export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps)
                       if (injectionPrice !== undefined) {
                         return [
                           '',
-                          `Injection Price: €${injectionPrice.toFixed(3)}/kWh`
+                          `Injection Price: €${injectionPrice.toFixed(0)}/MWh`
                         ];
                       }
                       return [];
@@ -419,6 +533,18 @@ export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps)
     updateCharts();
   }, [data, currentSlot]);
 
+  // Initialize PV inverter chart when section is expanded
+  useEffect(() => {
+    if (pvInverterChartOpen && !pvInverterChartInstance.current) {
+      // Small delay to ensure the DOM is ready
+      const timer = setTimeout(() => {
+        initPvInverterChart();
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [pvInverterChartOpen]);
+
   return (
     <div className="space-y-6">
       <Card className="bg-gray-800 border-gray-700">
@@ -495,6 +621,26 @@ export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps)
           </div>
         </CardContent>
       </Card>
+
+      <Collapsible open={pvInverterChartOpen} onOpenChange={setPvInverterChartOpen}>
+        <Card className="bg-gray-800 border-gray-700">
+          <CardHeader className="flex items-center justify-between">
+            <CardTitle className="text-lg font-semibold text-gray-50">PV Inverter Production</CardTitle>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-gray-400">
+                <ChevronDown className={cn("h-4 w-4 transition-transform", pvInverterChartOpen ? "rotate-180" : "")} />
+              </Button>
+            </CollapsibleTrigger>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="h-80 w-full">
+                <canvas ref={pvInverterChartRef}></canvas>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     </div>
   );
 }

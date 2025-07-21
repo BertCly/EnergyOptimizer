@@ -3,30 +3,30 @@ import { SimulationDataPoint } from "@shared/schema";
 // Fixed data that won't change when configuration is adjusted
 export const FIXED_SIMULATION_DATA = {
   prices: {
-    0: { injection: 0.050, consumption: 0.150 },
-    1: { injection: 0.045, consumption: 0.140 },
-    2: { injection: 0.040, consumption: 0.130 },
-    3: { injection: 0.035, consumption: 0.120 },
-    4: { injection: 0.030, consumption: 0.110 },
-    5: { injection: 0.025, consumption: 0.105 },
-    6: { injection: -0.125, consumption: -0.016 },
-    7: { injection: -0.115, consumption: -0.006 },
-    8: { injection: 0.050, consumption: 0.150 },
-    9: { injection: 0.045, consumption: 0.140 },
-    10: { injection: 0.040, consumption: 0.130 },
-    11: { injection: 0.035, consumption: 0.120 },
-    12: { injection: 0.030, consumption: 0.110 },
-    13: { injection: 0.025, consumption: 0.105 },
-    14: { injection: -0.125, consumption: -0.016 },
-    15: { injection: -0.115, consumption: -0.006 },
-    16: { injection: -0.020, consumption: 0.092 },
-    17: { injection: 0.038, consumption: 0.155 },
-    18: { injection: 0.049, consumption: 0.168 },
-    19: { injection: 0.062, consumption: 0.184 },
-    20: { injection: 0.075, consumption: 0.200 },
-    21: { injection: 0.092, consumption: 0.221 },
-    22: { injection: 0.083, consumption: 0.210 },
-    23: { injection: 0.065, consumption: 0.188 },
+    0: { injection: 50, consumption: 150 },
+    1: { injection: 45, consumption: 140 },
+    2: { injection: 40, consumption: 130 },
+    3: { injection: 35, consumption: 120 },
+    4: { injection: 30, consumption: 110 },
+    5: { injection: 25, consumption: 105 },
+    6: { injection: -125, consumption: -16 },
+    7: { injection: -115, consumption: -6 },
+    8: { injection: 50, consumption: 150 },
+    9: { injection: 45, consumption: 140 },
+    10: { injection: 40, consumption: 130 },
+    11: { injection: 35, consumption: 120 },
+    12: { injection: 30, consumption: 110 },
+    13: { injection: 25, consumption: 105 },
+    14: { injection: -125, consumption: -16 },
+    15: { injection: -115, consumption: -6 },
+    16: { injection: -20, consumption: 92 },
+    17: { injection: 38, consumption: 155 },
+    18: { injection: 49, consumption: 168 },
+    19: { injection: 62, consumption: 184 },
+    20: { injection: 75, consumption: 200 },
+    21: { injection: 92, consumption: 221 },
+    22: { injection: 83, consumption: 210 },
+    23: { injection: 65, consumption: 188 },
   },
   
   consumption: [
@@ -75,7 +75,7 @@ export function generateFixedSimulationData(
 
     // Get fixed price data
     const pricePair = FIXED_SIMULATION_DATA.prices[hour as keyof typeof FIXED_SIMULATION_DATA.prices] ||
-                      { injection: 0.050, consumption: 0.150 };
+                      { injection: 50, consumption: 150 };
 
     data.push({
       time,
@@ -85,6 +85,7 @@ export function generateFixedSimulationData(
       consumption: FIXED_SIMULATION_DATA.consumption[i % 48],
       pvGeneration: FIXED_SIMULATION_DATA.pvGeneration[i % 48],
       pvForecast: FIXED_SIMULATION_DATA.pvForecast[i % 48],
+      pvInverterGenerations: [],
       batteryPower: 0,
       soc: initialSoc,
       netPower: 0,

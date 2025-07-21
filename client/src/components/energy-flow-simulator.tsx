@@ -54,7 +54,8 @@ export function EnergyFlowSimulator() {
       current.netPower = effectiveConsumption + current.batteryPower - current.pvGeneration + current.curtailment;
       
       // Calculate cost for this interval (15 minutes = 0.25 hours)
-      const pricePerKWh = current.netPower >= 0 ? current.consumptionPrice : current.injectionPrice;
+      // Prices are in €/MWh, so divide by 1000 to get €/kWh for calculation
+      const pricePerKWh = (current.netPower >= 0 ? current.consumptionPrice : current.injectionPrice) / 1000;
       current.cost = current.netPower * pricePerKWh * 0.25;
       
       // Update SoC based on battery power
@@ -98,10 +99,10 @@ export function EnergyFlowSimulator() {
     
     const visibleData = simulationData.slice(0, currentSlot + 1);
     const csvData = visibleData.map(d =>
-      `${d.timeString},${d.consumptionPrice.toFixed(3)},${d.injectionPrice.toFixed(3)},${d.consumption.toFixed(1)},${d.pvGeneration.toFixed(1)},${d.pvForecast?.toFixed(1) || '0.0'},${d.batteryPower.toFixed(1)},${d.soc.toFixed(1)},${d.loadState ? 'ON' : 'OFF'},${d.curtailment?.toFixed(1) || '0.0'},${d.netPower.toFixed(1)},${d.cost.toFixed(3)}`
+      `${d.timeString},${d.consumptionPrice.toFixed(0)},${d.injectionPrice.toFixed(0)},${d.consumption.toFixed(1)},${d.pvGeneration.toFixed(1)},${d.pvForecast?.toFixed(1) || '0.0'},${d.batteryPower.toFixed(1)},${d.soc.toFixed(1)},${d.loadState ? 'ON' : 'OFF'},${d.curtailment?.toFixed(1) || '0.0'},${d.netPower.toFixed(1)},${d.cost.toFixed(3)}`
     ).join('\n');
 
-    const csv = 'Time,Consumption Price (€/kWh),Injection Price (€/kWh),Consumption (kW),PV Generation (kW),PV Forecast (kW),Battery Power (kW),SoC (%),Controllable Load,PV Curtailment (kW),Net Power (kW),Cost (€)\n' + csvData;
+    const csv = 'Time,Consumption Price (€/MWh),Injection Price (€/MWh),Consumption (kW),PV Generation (kW),PV Forecast (kW),Battery Power (kW),SoC (%),Controllable Load,PV Curtailment (kW),Net Power (kW),Cost (€)\n' + csvData;
     
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -142,7 +143,8 @@ export function EnergyFlowSimulator() {
       current.netPower = effectiveConsumption + current.batteryPower - current.pvGeneration + current.curtailment;
       
       // Calculate cost for this interval (15 minutes = 0.25 hours)
-      const pricePerKWh = current.netPower >= 0 ? current.consumptionPrice : current.injectionPrice;
+      // Prices are in €/MWh, so divide by 1000 to get €/kWh for calculation
+      const pricePerKWh = (current.netPower >= 0 ? current.consumptionPrice : current.injectionPrice) / 1000;
       current.cost = current.netPower * pricePerKWh * 0.25;
       
       // Update SoC based on battery power
@@ -180,7 +182,7 @@ export function EnergyFlowSimulator() {
             <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
               <Zap className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-semibold text-gray-50">Battery Cost Optimization Simulator</h1>
+            <h1 className="text-xl font-semibold text-gray-50">Energy Optimization Simulator</h1>
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-right">

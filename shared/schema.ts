@@ -7,6 +7,12 @@ export const pvInverterSchema = z.object({
   pricePerMWh: z.number().min(0).optional(), // Optional price per MWh
 });
 
+// Individual PV Inverter Generation Data
+export const pvInverterGenerationSchema = z.object({
+  inverterId: z.string(),
+  generation: z.number(), // kW
+});
+
 // Site Energy Configuration Schema
 export const siteEnergyConfigSchema = z.object({
   batteryCapacity: z.number().min(10).max(1000).default(200),
@@ -39,6 +45,7 @@ export const simulationDataPointSchema = z.object({
   consumption: z.number(),
   pvGeneration: z.number(),
   pvForecast: z.number(),
+  pvInverterGenerations: z.array(pvInverterGenerationSchema).default([]), // Individual inverter generations
   batteryPower: z.number(),
   soc: z.number(),
   netPower: z.number(),
@@ -63,5 +70,6 @@ export const controlDecisionSchema = z.object({
 // Export types
 export type SiteEnergyConfig = z.infer<typeof siteEnergyConfigSchema>;
 export type PvInverter = z.infer<typeof pvInverterSchema>;
+export type PvInverterGeneration = z.infer<typeof pvInverterGenerationSchema>;
 export type SimulationDataPoint = z.infer<typeof simulationDataPointSchema>;
 export type ControlDecision = z.infer<typeof controlDecisionSchema>;

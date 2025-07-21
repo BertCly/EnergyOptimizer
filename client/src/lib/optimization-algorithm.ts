@@ -1,4 +1,60 @@
-import { SiteEnergyConfig, SimulationDataPoint, ControlDecision } from "@shared/schema";
+import { SiteEnergyConfig, SimulationDataPoint, ControlDecision, PvInverterGeneration } from "@shared/schema";
+
+// Helper function to get generation for a specific PV inverter
+export function getPvInverterGeneration(
+  dataPoint: SimulationDataPoint, 
+  inverterId: string
+): number {
+  const inverterData = dataPoint.pvInverterGenerations.find(
+    gen => gen.inverterId === inverterId
+  );
+  return inverterData ? inverterData.generation : 0;
+}
+
+// Helper function to get all PV inverter generations
+export function getAllPvInverterGenerations(
+  dataPoint: SimulationDataPoint
+): PvInverterGeneration[] {
+  return dataPoint.pvInverterGenerations;
+}
+
+// Helper function to get total PV generation from inverters with price below threshold
+export function getAffordablePvGeneration(
+  dataPoint: SimulationDataPoint,
+  config: SiteEnergyConfig,
+  priceThreshold: number // €/MWh
+): number {
+  let totalGeneration = 0;
+  
+  for (const inverter of config.pvInverters) {
+    // Inverters without pricePerMWh are considered affordable
+    if (inverter.pricePerMWh === undefined || inverter.pricePerMWh < priceThreshold) {
+      const generation = getPvInverterGeneration(dataPoint, inverter.id);
+      totalGeneration += generation;
+    }
+  }
+  
+  return totalGeneration;
+}
+
+// Helper function to get total PV generation from inverters with price above threshold (expensive)
+export function getExpensivePvGeneration(
+  dataPoint: SimulationDataPoint,
+  config: SiteEnergyConfig,
+  priceThreshold: number // €/MWh
+): number {
+  let totalGeneration = 0;
+  
+  for (const inverter of config.pvInverters) {
+    // Only include inverters with price higher than threshold
+    if (inverter.pricePerMWh !== undefined && inverter.pricePerMWh >= priceThreshold) {
+      const generation = getPvInverterGeneration(dataPoint, inverter.id);
+      totalGeneration += generation;
+    }
+  }
+  
+  return totalGeneration;
+}
 
 export function controlCycle(
   currentSlot: number,
@@ -180,16 +236,41 @@ function shouldChargeNow(
   }
   // --- Einde blok 3: Vooruitkijken naar toekomstige tekorten ---
 
-  // --- Blok 4: PV-overschot ---
-  const pvSurplus = current.pvGeneration - current.consumption;
+  // --- Blok 4: PV-overschot (alleen betaalbare PV) ---
+  // Converteer consumptieprijs van €/kWh naar €/MWh voor vergelijking
+  const consumptionPricePerMWh = current.consumptionPrice;
+  
+  // Gebruik alleen PV generatie van omvormers met prijs lager dan huidige consumptieprijs
+  const affordablePvGeneration = getAffordablePvGeneration(current, config, consumptionPricePerMWh);
+  const expensivePvGeneration = getExpensivePvGeneration(current, config, consumptionPricePerMWh);
+  const pvSurplus = affordablePvGeneration - current.consumption;
+  
   if (pvSurplus > 0) {
+    let reason = `pv surplus (affordable PV: ${affordablePvGeneration.toFixed(1)}kW)`;
+    
+    // Als er dure PV is die niet wordt gebruikt, voeg dat toe aan de reden
+    if (expensivePvGeneration > 0) {
+      reason += `, expensive PV not used: ${expensivePvGeneration.toFixed(1)}kW`;
+    }
+    
     return {
       power: Math.min(pvSurplus, config.maxChargeRate),
-      reason: 'pv surplus',
+      reason: reason,
     };
   }
 
-  return { power: 0, reason: 'no future deficit, no pv surplus' };
+  // Samengevoegde return voor geen PV surplus
+  const totalPvGeneration = current.pvGeneration;
+  let reason = 'no negative prices, no future deficit';
+  
+  // Voeg informatie toe over dure PV die niet wordt gebruikt
+  if (totalPvGeneration > 0 && affordablePvGeneration === 0 && expensivePvGeneration > 0) {
+    reason += `, no affordable PV available (expensive PV: ${expensivePvGeneration.toFixed(1)}kW)`;
+  } else {
+    reason += ', no pv surplus'
+  }
+  
+  return { power: 0, reason: reason };
 }
 
 /**
@@ -409,11 +490,17 @@ function determineLoadState(
   // Kijk vooruit vanaf currentSlot tot aan de deadline
   const futureSlots = slotsToday.filter(s => s.index >= currentSlot);
 
-  // 1. Tel het aantal slots met PV-overschot >= activation power
+  // 1. Tel het aantal slots met PV-overschot >= activation power (alleen betaalbare PV)
   const pvOversupplySlots: number[] = [];
   for (const { index, point } of futureSlots) {
+    // Converteer consumptieprijs van €/kWh naar €/MWh voor vergelijking
+    const consumptionPricePerMWh = point.consumptionPrice;
+    
+    // Gebruik alleen PV generatie van omvormers met prijs lager dan huidige consumptieprijs
+    const affordablePvGeneration = getAffordablePvGeneration(point, config, consumptionPricePerMWh);
+    
     // Bepaal oversupply na batterij (gebruik 0 voor batteryPower in toekomst)
-    const oversupply = point.pvGeneration - point.consumption - Math.max(0, 0);
+    const oversupply = affordablePvGeneration - point.consumption - Math.max(0, 0);
     if (oversupply >= config.loadActivationPower) {
       pvOversupplySlots.push(index);
     }
@@ -429,11 +516,19 @@ function determineLoadState(
   //    (Als pvOversupplySlots >= minSlotsNeeded, dan alleen die slots gebruiken.)
 
   // Verzamel alle slots van vandaag tot deadline die nog niet voorbij zijn
-  const candidateSlots = futureSlots.map(({ index, point }) => ({
-    index,
-    price: point.consumptionPrice,
-    pvOversupply: (point.pvGeneration - point.consumption) >= config.loadActivationPower,
-  }));
+  const candidateSlots = futureSlots.map(({ index, point }) => {
+    // Converteer consumptieprijs van €/kWh naar €/MWh voor vergelijking
+    const consumptionPricePerMWh = point.consumptionPrice;
+    
+    // Gebruik alleen PV generatie van omvormers met prijs lager dan huidige consumptieprijs
+    const affordablePvGeneration = getAffordablePvGeneration(point, config, consumptionPricePerMWh);
+    
+    return {
+      index,
+      price: point.consumptionPrice,
+      pvOversupply: (affordablePvGeneration - point.consumption) >= config.loadActivationPower,
+    };
+  });
 
   // Sorteer op prijs (goedkoopste eerst)
   candidateSlots.sort((a, b) => a.price - b.price);

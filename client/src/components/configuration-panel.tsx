@@ -62,35 +62,27 @@ export function ConfigurationPanel({ config, onConfigChange, scenario, onScenari
 
   return (
     <div className="space-y-6">
-      <Collapsible open={openScenario} onOpenChange={setOpenScenario}>
-        <Card className="bg-gray-800 border-gray-700">
-          <CardHeader className="flex items-center justify-between">
-            <CardTitle className="text-lg font-semibold text-gray-50">Scenario</CardTitle>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-gray-400">
-                <ChevronDown className={cn("h-4 w-4 transition-transform", openScenario ? "rotate-180" : "")} />
-              </Button>
-            </CollapsibleTrigger>
-          </CardHeader>
-          <CollapsibleContent>
-            <CardContent>
-              <select
-                className="mt-1 bg-gray-700 border-gray-600 text-gray-50 w-full"
-                value={scenario}
-                onChange={e => onScenarioChange(e.target.value as SimulationScenario)}
-              >
-                <option value="eveningHighPrice">Evening high prices</option>
-                <option value="negativeDayPrice">Negative day prices</option>
-                <option value="variablePv">Variable PV</option>
-                <option value="startupPeak">Workday startup peak</option>
-                <option value="lowPv">Low PV yield</option>
-                <option value="priceSpike">Price spike (12:00-14:00)</option>
-                <option value="random">Random</option>
-              </select>
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
+      {/* Scenario block is always visible, not collapsible */}
+      <Card className="bg-gray-800 border-gray-700">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold text-gray-50">Scenario</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <select
+            className="mt-1 bg-gray-700 border-gray-600 text-gray-50 w-full"
+            value={scenario}
+            onChange={e => onScenarioChange(e.target.value as SimulationScenario)}
+          >
+            <option value="eveningHighPrice">Evening high prices</option>
+            <option value="negativeDayPrice">Negative day prices</option>
+            <option value="variablePv">Variable PV</option>
+            <option value="startupPeak">Workday startup peak</option>
+            <option value="lowPv">Low PV yield</option>
+            <option value="priceSpike">Price spike (12:00-14:00)</option>
+            <option value="random">Random</option>
+          </select>
+        </CardContent>
+      </Card>
 
       <Collapsible open={openPv} onOpenChange={setOpenPv}>
         <Card className="bg-gray-800 border-gray-700">
