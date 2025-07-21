@@ -1,7 +1,14 @@
 import { z } from "zod";
 
-// Battery Configuration Schema
-export const batteryConfigSchema = z.object({
+// PV Inverter Schema
+export const pvInverterSchema = z.object({
+  id: z.string(),
+  capacity: z.number().min(0.1).max(1000).default(10), // kW
+  pricePerMWh: z.number().min(0).optional(), // Optional price per MWh
+});
+
+// Site Energy Configuration Schema
+export const siteEnergyConfigSchema = z.object({
   batteryCapacity: z.number().min(10).max(1000).default(200),
   maxChargeRate: z.number().min(1).max(500).default(200),
   maxDischargeRate: z.number().min(1).max(500).default(200),
@@ -15,6 +22,12 @@ export const batteryConfigSchema = z.object({
   loadNominalPower: z.number().min(0).default(50),
   gridCapacityImportLimit: z.number().min(0).max(1000).default(200),
   gridCapacityExportLimit: z.number().min(0).max(1000).default(200),
+  pvInverters: z.array(pvInverterSchema).default([
+    {
+      id: "default-pv-inverter",
+      capacity: 50,
+    }
+  ]),
 });
 
 // Simulation Data Point Schema
@@ -48,6 +61,7 @@ export const controlDecisionSchema = z.object({
 });
 
 // Export types
-export type BatteryConfig = z.infer<typeof batteryConfigSchema>;
+export type SiteEnergyConfig = z.infer<typeof siteEnergyConfigSchema>;
+export type PvInverter = z.infer<typeof pvInverterSchema>;
 export type SimulationDataPoint = z.infer<typeof simulationDataPointSchema>;
 export type ControlDecision = z.infer<typeof controlDecisionSchema>;

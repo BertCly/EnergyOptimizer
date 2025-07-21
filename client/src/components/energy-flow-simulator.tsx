@@ -5,13 +5,13 @@ import { ConfigurationPanel } from "./configuration-panel";
 import { ChartsSection } from "./charts-section";
 import { EditableDataTable } from "./editable-data-table";
 
-import { BatteryConfig, SimulationDataPoint, batteryConfigSchema } from "@shared/schema";
+import { SiteEnergyConfig, SimulationDataPoint, siteEnergyConfigSchema } from "@shared/schema";
 import { SIMULATION_SLOTS, TOTAL_SLOTS } from "@/lib/fixed-data";
 import { generateSimulationData, SimulationScenario } from "@/lib/data-generator";
 import { controlCycle } from "@/lib/optimization-algorithm";
 
 export function EnergyFlowSimulator() {
-  const [config, setConfig] = useState<BatteryConfig>(batteryConfigSchema.parse({}));
+  const [config, setConfig] = useState<SiteEnergyConfig>(siteEnergyConfigSchema.parse({}));
   const [scenario, setScenario] = useState<SimulationScenario>('eveningHighPrice');
   const [simulationData, setSimulationData] = useState<SimulationDataPoint[]>([]);
   const [currentSlot, setCurrentSlot] = useState(SIMULATION_SLOTS - 1);
@@ -21,7 +21,7 @@ export function EnergyFlowSimulator() {
 
 
   const runFullSimulation = () => {
-    const data = generateSimulationData(config.initialSoc, scenario, TOTAL_SLOTS);
+    const data = generateSimulationData(config, scenario, TOTAL_SLOTS);
     setCurrentSlot(SIMULATION_SLOTS - 1);
     setTotalCost(0);
 
@@ -112,6 +112,62 @@ export function EnergyFlowSimulator() {
     window.URL.revokeObjectURL(url);
   };
 
+  const handleDataChange = (updatedData: SimulationDataPoint[]) => {
+    // Re-run simulation with updated data to recalculate derived values
+    const optimizedData = [...updatedData];
+    let totalCostAccumulator = 0;
+
+    // Run optimization only over simulation horizon
+    for (let slot = 0; slot < SIMULATION_SLOTS; slot++) {
+      const current = optimizedData[slot];
+      
+      // Run optimization
+      const decision = controlCycle(slot, optimizedData, config);
+      
+      // Update battery decision
+      current.batteryPower = decision.batteryPower;
+      current.curtailment = decision.curtailment;
+      current.loadState = decision.loadState;
+      current.loadDecisionReason = decision.loadDecisionReason;
+      current.batteryDecisionReason = decision.batteryDecisionReason;
+      current.curtailmentDecisionReason = decision.curtailmentDecisionReason;
+
+      // Account for controllable load increasing consumption when ON
+      let effectiveConsumption = current.consumption;
+      if (current.loadState) {
+        effectiveConsumption += config.loadNominalPower;
+      }
+      
+      // Calculate net power (positive = from grid, negative = to grid)
+      current.netPower = effectiveConsumption + current.batteryPower - current.pvGeneration + current.curtailment;
+      
+      // Calculate cost for this interval (15 minutes = 0.25 hours)
+      const pricePerKWh = current.netPower >= 0 ? current.consumptionPrice : current.injectionPrice;
+      current.cost = current.netPower * pricePerKWh * 0.25;
+      
+      // Update SoC based on battery power
+      const energyChange = current.batteryPower * 0.25; // kWh for 15-min interval
+      const socChange = (energyChange / config.batteryCapacity) * 100;
+      current.soc = Math.max(config.minSoc, Math.min(config.maxSoc, current.soc + socChange));
+      
+      // Update next slot's initial SoC
+      if (slot < optimizedData.length - 1) {
+        optimizedData[slot + 1].soc = current.soc;
+      }
+      
+      // Accumulate total cost
+      totalCostAccumulator += current.cost;
+    }
+    
+    // Carry final SoC forward for remaining forecast slots
+    for (let j = SIMULATION_SLOTS; j < optimizedData.length; j++) {
+      optimizedData[j].soc = optimizedData[SIMULATION_SLOTS - 1].soc;
+    }
+
+    setSimulationData(optimizedData);
+    setTotalCost(totalCostAccumulator);
+  };
+
   const handleClearLog = () => {
     runFullSimulation();
   };
@@ -158,7 +214,7 @@ export function EnergyFlowSimulator() {
         <div className="mt-6 max-w-screen-2xl mx-auto">
           <EditableDataTable
             data={simulationData}
-            onDataChange={setSimulationData}
+            onDataChange={handleDataChange}
             onClearLog={handleClearLog}
             onExportData={handleExportData}
             isSimulationRunning={false}

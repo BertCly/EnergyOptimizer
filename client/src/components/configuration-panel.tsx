@@ -4,16 +4,16 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
-import { Info, ChevronDown } from "lucide-react";
+import { Info, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { BatteryConfig } from "@shared/schema";
+import { SiteEnergyConfig, PvInverter } from "@shared/schema";
 
 import { SimulationScenario } from "@/lib/data-generator";
 
 interface ConfigurationPanelProps {
-  config: BatteryConfig;
-  onConfigChange: (config: BatteryConfig) => void;
+  config: SiteEnergyConfig;
+  onConfigChange: (config: SiteEnergyConfig) => void;
   scenario: SimulationScenario;
   onScenarioChange: (s: SimulationScenario) => void;
 }
@@ -24,11 +24,39 @@ export function ConfigurationPanel({ config, onConfigChange, scenario, onScenari
   const [openLimits, setOpenLimits] = useState(false)
   const [openLoad, setOpenLoad] = useState(false)
   const [openGrid, setOpenGrid] = useState(false)
+  const [openPv, setOpenPv] = useState(false)
 
-  const updateConfig = (field: keyof BatteryConfig, value: number) => {
+  const updateConfig = (field: keyof SiteEnergyConfig, value: number) => {
     onConfigChange({
       ...config,
       [field]: value,
+    });
+  };
+
+  const addPvInverter = () => {
+    const newInverter: PvInverter = {
+      id: `pv-${Date.now()}`,
+      capacity: 10,
+    };
+    onConfigChange({
+      ...config,
+      pvInverters: [...config.pvInverters, newInverter],
+    });
+  };
+
+  const removePvInverter = (id: string) => {
+    onConfigChange({
+      ...config,
+      pvInverters: config.pvInverters.filter(inverter => inverter.id !== id),
+    });
+  };
+
+  const updatePvInverter = (id: string, field: keyof PvInverter, value: number | string | null) => {
+    onConfigChange({
+      ...config,
+      pvInverters: config.pvInverters.map(inverter => 
+        inverter.id === id ? { ...inverter, [field]: value } : inverter
+      ),
     });
   };
 
@@ -63,6 +91,100 @@ export function ConfigurationPanel({ config, onConfigChange, scenario, onScenari
           </CollapsibleContent>
         </Card>
       </Collapsible>
+
+      <Collapsible open={openPv} onOpenChange={setOpenPv}>
+        <Card className="bg-gray-800 border-gray-700">
+          <CardHeader className="flex items-center justify-between">
+            <CardTitle className="text-lg font-semibold text-gray-50">PV Inverters</CardTitle>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-gray-400">
+                <ChevronDown className={cn("h-4 w-4 transition-transform", openPv ? "rotate-180" : "")} />
+              </Button>
+            </CollapsibleTrigger>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent className="space-y-4">
+              {config.pvInverters.map((inverter, index) => (
+                <div key={inverter.id} className="p-4 border border-gray-600 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-gray-300">PV Inverter {index + 1}</h4>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removePvInverter(inverter.id)}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <Label htmlFor={`capacity-${inverter.id}`} className="text-sm font-medium text-gray-300">
+                        Capacity (kW)
+                      </Label>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="w-4 h-4 text-gray-400" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Maximum power output of the PV inverter</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <Input
+                      id={`capacity-${inverter.id}`}
+                      type="number"
+                      min="0.1"
+                      max="1000"
+                      step="0.1"
+                      value={inverter.capacity}
+                      onChange={(e) => updatePvInverter(inverter.id, 'capacity', parseFloat(e.target.value))}
+                      className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <Label htmlFor={`price-${inverter.id}`} className="text-sm font-medium text-gray-300">
+                        Price per MWh (optional)
+                      </Label>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="w-4 h-4 text-gray-400" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Optional price per MWh for this inverter's output</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <Input
+                      id={`price-${inverter.id}`}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Leave empty for no price"
+                      value={inverter.pricePerMWh || ''}
+                      onChange={(e) => updatePvInverter(inverter.id, 'pricePerMWh', e.target.value ? parseFloat(e.target.value) : null)}
+                      className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              ))}
+
+              <Button
+                onClick={addPvInverter}
+                variant="outline"
+                className="w-full border-gray-600 text-gray-300 hover:bg-gray-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add PV Inverter
+              </Button>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
       <Collapsible open={openBattery} onOpenChange={setOpenBattery}>
         <Card className="bg-gray-800 border-gray-700">
           <CardHeader className="flex items-center justify-between">

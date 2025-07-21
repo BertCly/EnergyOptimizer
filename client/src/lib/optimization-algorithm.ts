@@ -1,9 +1,9 @@
-import { BatteryConfig, SimulationDataPoint, ControlDecision } from "@shared/schema";
+import { SiteEnergyConfig, SimulationDataPoint, ControlDecision } from "@shared/schema";
 
 export function controlCycle(
   currentSlot: number,
   data: SimulationDataPoint[],
-  config: BatteryConfig
+  config: SiteEnergyConfig
 ): ControlDecision {
   const current = data[currentSlot];
   const horizon = Math.min(48, data.length - currentSlot); // 48 slots (12h) lookahead
@@ -74,7 +74,7 @@ export function controlCycle(
 function shouldChargeNow(
   currentSlot: number,
   current: SimulationDataPoint,
-  config: BatteryConfig,
+  config: SiteEnergyConfig,
   forecast: SimulationDataPoint[]
 ): { power: number; reason: string } {
   // --- Blok 1: Maximale SoC-check ---
@@ -88,6 +88,27 @@ function shouldChargeNow(
     return {
       power: config.maxChargeRate,
       reason: 'negative price: charge as much as possible'
+    };
+  }
+
+  // --- Blok 2.5: Voorkom laden als er een negatieve consumptieprijs aankomt ---
+  // Bepaal lookahead horizon voor negatieve prijzen
+  const lookaheadSlots = getNegativePriceLookaheadHorizon(current, config, forecast);
+
+  // Zoek het eerste slot met negatieve consumptieprijs binnen deze horizon
+  let negSlot = -1;
+  for (let i = 1; i <= lookaheadSlots; i++) {
+    if (forecast[i].consumptionPrice < 0) {
+      negSlot = i;
+      break;
+    }
+  }
+
+  // Als er een negatieve consumptieprijs aankomt, niet laden
+  if (negSlot > 0) {
+    return { 
+      power: 0, 
+      reason: `do not charge: negative consumption price coming in slot +${negSlot}` 
     };
   }
 
@@ -184,7 +205,7 @@ function shouldChargeNow(
 function shouldDischargeNow(
   currentSlot: number,
   current: SimulationDataPoint,
-  config: BatteryConfig,
+  config: SiteEnergyConfig,
   loadState: boolean,
   forecast: SimulationDataPoint[]
 ): { power: number; reason: string } {
@@ -198,36 +219,46 @@ function shouldDischargeNow(
     return { power: 0, reason: 'discharging not allowed at negative price' };
   }
 
-  // --- NIEUW: Kijk of er in de komende twee tijdslots een negatieve consumptieprijs aankomt ---
-  // EN de injectieprijs is nu positief
-  // if (
-  //   forecast.length > 2 &&
-  //   (forecast[1].consumptionPrice < 0 || forecast[2].consumptionPrice < 0) &&
-  //   current.injectionPrice > 0
-  // ) {
-  //   // Bereken hoeveel energie er uit de batterij kan tot minSoc
-  //   const socEnergy = (current.soc / 100) * config.batteryCapacity;
-  //   const minEnergy = (config.minSoc / 100) * config.batteryCapacity;
-  //   const allowedEnergy = socEnergy - minEnergy;
-  //   // Ontlaad alles wat kan in dit slot
-  //   const maxDischarge = Math.min(config.maxDischargeRate, allowedEnergy / 0.25);
-  //   if (maxDischarge > 0) {
-  //     // Geef aan in welke slot de negatieve prijs zit
-  //     const negSlot = forecast[1].consumptionPrice < 0 ? 1 : 2;
-  //     return {
-  //       power: maxDischarge,
-  //       reason: `discharge fully before negative consumption price (slot +${negSlot}), injection price now positive`
-  //     };
-  //   } else {
-  //     const negSlot = forecast[1].consumptionPrice < 0 ? 1 : 2;
-  //     return {
-  //       power: 0,
-  //       reason: `no energy available to discharge before negative consumption price (slot +${negSlot})`
-  //     };
-  //   }
-  // }
+  // 2. Kijk vooruit naar negatieve consumptieprijs, met dynamische horizon gebaseerd op ontlaadtijd ---
+  // Bepaal lookahead horizon voor negatieve prijzen
+  const lookaheadSlots = getNegativePriceLookaheadHorizon(current, config, forecast);
 
-  // --- Blok 3: Bepaal huidig tekort en reserveer voor toekomstige dure uren ---
+  // Zoek het eerste slot met negatieve consumptieprijs binnen deze horizon
+  let negSlot = -1;
+  for (let i = 1; i <= lookaheadSlots; i++) {
+    if (forecast[i].consumptionPrice < 0) {
+      negSlot = i;
+      break;
+    }
+  }
+
+  // EN de injectieprijs is nu positief
+  if (negSlot > 0 && current.injectionPrice > 0) {
+    // Bepaal hoeveel energie er uit de batterij kan tot minSoc
+    const socEnergy1 = (current.soc / 100) * config.batteryCapacity;
+    const minEnergy1 = (config.minSoc / 100) * config.batteryCapacity;
+    const allowedEnergy1 = socEnergy1 - minEnergy1;
+
+    // Bepaal maximaal toelaatbare ontlaadvermogen (beperk door batterij en grid export limiet)
+    const maxDischargePower = Math.min(config.maxDischargeRate, config.gridCapacityExportLimit);
+
+    // Ontlaad alles wat kan in dit slot
+    const maxDischarge = Math.min(maxDischargePower, allowedEnergy1 / 0.25);
+    if (maxDischarge > 0) {
+      return {
+        power: maxDischarge,
+        reason: `discharge fully before negative consumption price (slot +${negSlot}), injection price now positive`
+      };
+    } else {
+      return {
+        power: 0,
+        reason: `no energy available to discharge before negative consumption price (slot +${negSlot})`
+      };
+    }
+  }
+
+  // --- Blok 3: Bereken het huidige tekort (consumptie - PV) en bepaal hoeveel energie je nu kunt dischargen om te consumptie te compenseren, 
+  //          waarbij je voldoende reserveert voor verwachte dure uren in de nabije toekomst ---
   // Bepaal huidig tekort (consumptie - PV)
   const effectiveConsumption = current.consumption;
   const deficit = Math.max(0, effectiveConsumption - current.pvGeneration);
@@ -261,12 +292,12 @@ function shouldDischargeNow(
   const futureNeed = Math.max(0, futureDeficit - Math.min(expectedCharge, availableCapacity));
 
   // Bepaal hoeveel energie we nu maximaal mogen ontladen
-  const socEnergy = (current.soc / 100) * config.batteryCapacity;
-  const minEnergy = (config.minSoc / 100) * config.batteryCapacity;
-  const allowedEnergy = socEnergy - minEnergy - futureNeed;
+  const socEnergy2 = (current.soc / 100) * config.batteryCapacity;
+  const minEnergy2 = (config.minSoc / 100) * config.batteryCapacity;
+  const allowedEnergy2 = socEnergy2 - minEnergy2 - futureNeed;
 
   // Bepaal maximaal toelaatbaar ontlaadvermogen
-  const maxPower = Math.min(deficit, config.maxDischargeRate, allowedEnergy / 0.25);
+  const maxPower = Math.min(deficit, config.maxDischargeRate, allowedEnergy2 / 0.25);
 
   if (maxPower <= 0) {
     return { power: 0, reason: 'reserve for future expensive consumption' };
@@ -275,8 +306,38 @@ function shouldDischargeNow(
   // Ontlaad alleen wat nodig is, tot het maximum
   return { 
     power: maxPower, 
-    reason: `cover consumption (deficit: ${deficit.toFixed(2)} kW, allowed: ${allowedEnergy.toFixed(2)} kWh, futureNeed: ${futureNeed.toFixed(2)} kWh)`
+    reason: `cover consumption (deficit: ${deficit.toFixed(2)} kW, allowed: ${allowedEnergy2.toFixed(2)} kWh, futureNeed: ${futureNeed.toFixed(2)} kWh)`
   };
+}
+
+/**
+ * Bepaalt de lookahead horizon voor het zoeken naar negatieve consumptieprijzen.
+ * De horizon is gebaseerd op hoe lang het duurt om de batterij te ontladen.
+ * 
+ * @param current - Huidige simulatiepunt
+ * @param config - Batterijconfiguratie
+ * @param forecast - Array van toekomstige simulatiepunten
+ * @returns Aantal slots om vooruit te kijken
+ */
+function getNegativePriceLookaheadHorizon(
+  current: SimulationDataPoint,
+  config: SiteEnergyConfig,
+  forecast: SimulationDataPoint[]
+): number {
+  // Bepaal hoeveel energie er uit de batterij kan tot minSoc
+  const socEnergy = (current.soc / 100) * config.batteryCapacity;
+  const minEnergy = (config.minSoc / 100) * config.batteryCapacity;
+  const allowedEnergy = socEnergy - minEnergy;
+
+  // Bepaal maximaal toelaatbaar ontlaadvermogen (beperk door batterij en grid export limiet)
+  const maxDischargePower = Math.min(config.maxDischargeRate, config.gridCapacityExportLimit);
+
+  // Hoeveel kwartieren zijn er nodig om allowedEnergy te ontladen met maxDischargePower?
+  // (energy per slot = power * 0.25)
+  const slotsToEmpty = maxDischargePower > 0 ? Math.ceil(allowedEnergy / (maxDischargePower * 0.25)) : 0;
+
+  // Kijk vooruit over dat aantal slots (maar niet verder dan de forecast beschikbaar is)
+  return Math.min(slotsToEmpty, forecast.length - 1);
 }
 
 /**
@@ -298,7 +359,7 @@ function determineLoadState(
   currentSlot: number,
   data: SimulationDataPoint[],
   batteryPower: number,
-  config: BatteryConfig,
+  config: SiteEnergyConfig,
   current: SimulationDataPoint
 ): { state: boolean; reason: string } {
   // Was de load in de vorige stap actief?
@@ -435,7 +496,7 @@ function determineLoadState(
 function calculatePvCurtailment(
   current: SimulationDataPoint,
   decision: ControlDecision,
-  config: BatteryConfig
+  config: SiteEnergyConfig
 ): { curtailment: number; reason: string } {
   if (current.consumptionPrice < 0) {
     return { curtailment: current.pvGeneration, reason: 'negative consumption price' };
@@ -466,7 +527,7 @@ function calculatePvCurtailment(
 function applyGridCapacityLimits(
   current: SimulationDataPoint,
   decision: ControlDecision,
-  config: BatteryConfig
+  config: SiteEnergyConfig
 ): ControlDecision {
   const adjustedDecision = { ...decision };
 

@@ -2,12 +2,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SimulationDataPoint } from "@shared/schema";
 import { useEffect, useRef } from "react";
 
-import { BatteryConfig } from "@shared/schema";
+import { SiteEnergyConfig } from "@shared/schema";
 
 interface ChartsSectionProps {
   data: SimulationDataPoint[];
   currentSlot: number;
-  config: BatteryConfig;
+  config: SiteEnergyConfig;
 }
 
 export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps) {

@@ -1,15 +1,15 @@
-import { BatteryConfig, SimulationDataPoint } from "@shared/schema";
+import { SiteEnergyConfig, SimulationDataPoint } from "@shared/schema";
 
 // Storage interface for battery simulation data
 export interface IStorage {
   saveSimulationData(data: SimulationDataPoint[]): Promise<void>;
-  getBatteryConfig(): Promise<BatteryConfig | undefined>;
-  saveBatteryConfig(config: BatteryConfig): Promise<void>;
+  getBatteryConfig(): Promise<SiteEnergyConfig | undefined>;
+  saveBatteryConfig(config: SiteEnergyConfig): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
   private simulationData: SimulationDataPoint[] = [];
-  private batteryConfig: BatteryConfig | undefined;
+  private batteryConfig: SiteEnergyConfig | undefined;
 
   constructor() {}
 
@@ -17,11 +17,11 @@ export class MemStorage implements IStorage {
     this.simulationData = data;
   }
 
-  async getBatteryConfig(): Promise<BatteryConfig | undefined> {
+  async getBatteryConfig(): Promise<SiteEnergyConfig | undefined> {
     return this.batteryConfig;
   }
 
-  async saveBatteryConfig(config: BatteryConfig): Promise<void> {
+  async saveBatteryConfig(config: SiteEnergyConfig): Promise<void> {
     this.batteryConfig = config;
   }
 }

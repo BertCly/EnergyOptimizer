@@ -1,4 +1,4 @@
-import { SimulationDataPoint } from "@shared/schema";
+import { SimulationDataPoint, SiteEnergyConfig } from "@shared/schema";
 
 export type SimulationScenario =
   | 'eveningHighPrice'
@@ -9,10 +9,13 @@ export type SimulationScenario =
   | 'priceSpike'
   | 'random';
 
-export function generateSimulationData(initialSoc: number, scenario: SimulationScenario, slots: number = 48): SimulationDataPoint[] {
+export function generateSimulationData(config: SiteEnergyConfig, scenario: SimulationScenario, slots: number = 48): SimulationDataPoint[] {
   const data: SimulationDataPoint[] = [];
   const startTime = new Date();
   startTime.setHours(8, 0, 0, 0); // Start at 8:00 AM
+
+  // Calculate total PV capacity from all inverters
+  const totalPvCapacity = config.pvInverters.reduce((sum, inverter) => sum + inverter.capacity, 0);
 
   const priceSchedule: Record<number, { injection: number; consumption: number }> = {};
 
@@ -65,20 +68,20 @@ export function generateSimulationData(initialSoc: number, scenario: SimulationS
       consumption = 20 + Math.random() * 10;
     }
 
-    // PV generation pattern (10:00-16:00)
+    // PV generation pattern (10:00-16:00) - limited by total inverter capacity
     let pvGeneration = 0;
     let pvForecast = 0;
     if (hour >= 10 && hour <= 16) {
       const midDay = 13;
       const distanceFromPeak = Math.abs(hour - midDay);
-      let maxGeneration = 40;
+      let maxGeneration = Math.min(40, totalPvCapacity); // Limit by inverter capacity
       if (scenario === 'variablePv') {
-        maxGeneration = 20 + Math.random() * 30;
+        maxGeneration = Math.min(20 + Math.random() * 30, totalPvCapacity);
       } else if (scenario === 'lowPv') {
-        maxGeneration = 15;
+        maxGeneration = Math.min(15, totalPvCapacity);
       }
-      pvGeneration = Math.max(0, maxGeneration * (1 - distanceFromPeak / 3) + Math.random() * 5);
-      pvForecast = Math.max(0, maxGeneration * (1 - distanceFromPeak / 3) + 2);
+      pvGeneration = Math.max(0, Math.min(maxGeneration * (1 - distanceFromPeak / 3) + Math.random() * 5, totalPvCapacity));
+      pvForecast = Math.max(0, Math.min(maxGeneration * (1 - distanceFromPeak / 3) + 2, totalPvCapacity));
     }
 
     data.push({
@@ -90,7 +93,7 @@ export function generateSimulationData(initialSoc: number, scenario: SimulationS
       pvGeneration,
       pvForecast,
       batteryPower: 0,
-      soc: initialSoc,
+      soc: config.initialSoc,
       netPower: 0,
       cost: 0,
       curtailment: 0,
