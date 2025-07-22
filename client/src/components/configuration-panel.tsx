@@ -127,11 +127,11 @@ export function ConfigurationPanel({ config, onConfigChange, scenario, onScenari
                     <Input
                       id={`capacity-${inverter.id}`}
                       type="number"
-                      min="0.1"
+                      min="1"
                       max="1000"
-                      step="0.1"
+                      step="1"
                       value={inverter.capacity}
-                      onChange={(e) => updatePvInverter(inverter.id, 'capacity', parseFloat(e.target.value))}
+                      onChange={(e) => updatePvInverter(inverter.id, 'capacity', parseInt(e.target.value))}
                       className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -330,6 +330,56 @@ export function ConfigurationPanel({ config, onConfigChange, scenario, onScenari
               max="100"
               value={config.maxSoc}
               onChange={(e) => updateConfig('maxSoc', parseFloat(e.target.value))}
+              className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="batteryRoundTripEfficiency" className="text-sm font-medium text-gray-300">
+                Round-trip Efficiency (%)
+              </Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Battery efficiency from charge to discharge (energy loss during round-trip)</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Input
+              id="batteryRoundTripEfficiency"
+              type="number"
+              min="10"
+              max="100"
+              step="1"
+              value={Math.round(config.batteryRoundTripEfficiency * 100)}
+              onChange={(e) => updateConfig('batteryRoundTripEfficiency', parseFloat(e.target.value) / 100)}
+              className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="batteryMinPriceDifference" className="text-sm font-medium text-gray-300">
+                Min Price Difference (EUR/MWh)
+              </Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Minimum price difference required to justify battery wear and tear</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Input
+              id="batteryMinPriceDifference"
+              type="number"
+              min="0"
+              max="1000"
+              step="1"
+              value={config.batteryMinPriceDifference}
+              onChange={(e) => updateConfig('batteryMinPriceDifference', parseFloat(e.target.value))}
               className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
             />
           </div>

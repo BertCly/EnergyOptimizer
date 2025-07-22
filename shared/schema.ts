@@ -21,6 +21,8 @@ export const siteEnergyConfigSchema = z.object({
   initialSoc: z.number().min(0).max(100).default(50),
   minSoc: z.number().min(0).max(100).default(5),
   maxSoc: z.number().min(0).max(100).default(95),
+  batteryRoundTripEfficiency: z.number().min(0.1).max(1.0).default(0.95), // Efficiency as decimal (95% = 0.95)
+  batteryMinPriceDifference: z.number().min(0).max(1000).default(20), // Minimum price difference in EUR/MWh
   loadMinRuntimeActivation: z.number().min(0).default(0.5),
   loadMinRuntimeDaily: z.number().min(0).default(2),
   loadRuntimeDeadlineHour: z.number().min(0).max(23).default(20),

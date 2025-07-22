@@ -8,7 +8,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 interface EditableDataTableProps {
   data: SimulationDataPoint[];
   onDataChange: (data: SimulationDataPoint[]) => void;
-  onClearLog: () => void;
   onExportData: () => void;
   isSimulationRunning: boolean;
 }
@@ -16,7 +15,6 @@ interface EditableDataTableProps {
 export function EditableDataTable({ 
   data, 
   onDataChange, 
-  onClearLog, 
   onExportData, 
   isSimulationRunning 
 }: EditableDataTableProps) {

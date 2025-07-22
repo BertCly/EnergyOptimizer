@@ -57,10 +57,15 @@ export function EnergyFlowSimulator() {
     return totalCostWithoutOpt + controllableLoadCost;
   };
 
-  const runFullSimulation = () => {
-    const data = generateSimulationData(config, scenario, TOTAL_SLOTS);
-    setCurrentSlot(SIMULATION_SLOTS - 1);
-    setTotalCost(0);
+  const runSimulation = (inputData?: SimulationDataPoint[]) => {
+    // Use provided data or generate new data
+    const data = inputData || generateSimulationData(config, scenario, TOTAL_SLOTS);
+    
+    // Only set currentSlot and reset totalCost when generating new data
+    if (!inputData) {
+      setCurrentSlot(SIMULATION_SLOTS - 1);
+      setTotalCost(0);
+    }
 
     const optimizedData = [...data];
     let totalCostAccumulator = 0;
@@ -84,7 +89,10 @@ export function EnergyFlowSimulator() {
       let effectiveConsumption = current.consumption;
       if (current.loadState) {
         effectiveConsumption += config.loadNominalPower;
-        current.consumption += config.loadNominalPower;
+        // Only update consumption when generating new data (not when using existing data)
+        if (!inputData) {
+          current.consumption += config.loadNominalPower;
+        }
       }
       
       // Calculate net power (positive = from grid, negative = to grid)
@@ -124,12 +132,12 @@ export function EnergyFlowSimulator() {
 
   // Run simulation on component mount and when config or scenario changes
   useEffect(() => {
-    runFullSimulation();
+    runSimulation();
   }, [config, scenario]);
 
   // Run simulation automatically on initial mount
   useEffect(() => {
-    runFullSimulation();
+    runSimulation();
   }, []);
 
   const handleExportData = () => {
@@ -156,68 +164,10 @@ export function EnergyFlowSimulator() {
 
   const handleDataChange = (updatedData: SimulationDataPoint[]) => {
     // Re-run simulation with updated data to recalculate derived values
-    const optimizedData = [...updatedData];
-    let totalCostAccumulator = 0;
-
-    // Run optimization only over simulation horizon
-    for (let slot = 0; slot < SIMULATION_SLOTS; slot++) {
-      const current = optimizedData[slot];
-      
-      // Run optimization
-      const decision = controlCycle(slot, optimizedData, config);
-      
-      // Update battery decision
-      current.batteryPower = decision.batteryPower;
-      current.curtailment = decision.curtailment;
-      current.loadState = decision.loadState;
-      current.loadDecisionReason = decision.loadDecisionReason;
-      current.batteryDecisionReason = decision.batteryDecisionReason;
-      current.curtailmentDecisionReason = decision.curtailmentDecisionReason;
-
-      // Account for controllable load increasing consumption when ON
-      let effectiveConsumption = current.consumption;
-      if (current.loadState) {
-        effectiveConsumption += config.loadNominalPower;
-      }
-      
-      // Calculate net power (positive = from grid, negative = to grid)
-      current.netPower = effectiveConsumption + current.batteryPower - current.pvGeneration + current.curtailment;
-      
-      // Calculate cost for this interval (15 minutes = 0.25 hours)
-      // Prices are in €/MWh, so divide by 1000 to get €/kWh for calculation
-      const pricePerKWh = (current.netPower >= 0 ? current.consumptionPrice : current.injectionPrice) / 1000;
-      current.cost = current.netPower * pricePerKWh * 0.25;
-      
-      // Update SoC based on battery power
-      const energyChange = current.batteryPower * 0.25; // kWh for 15-min interval
-      const socChange = (energyChange / config.batteryCapacity) * 100;
-      current.soc = Math.max(config.minSoc, Math.min(config.maxSoc, current.soc + socChange));
-      
-      // Update next slot's initial SoC
-      if (slot < optimizedData.length - 1) {
-        optimizedData[slot + 1].soc = current.soc;
-      }
-      
-      // Accumulate total cost
-      totalCostAccumulator += current.cost;
-    }
-    
-    // Carry final SoC forward for remaining forecast slots
-    for (let j = SIMULATION_SLOTS; j < optimizedData.length; j++) {
-      optimizedData[j].soc = optimizedData[SIMULATION_SLOTS - 1].soc;
-    }
-
-    setSimulationData(optimizedData);
-    setTotalCost(totalCostAccumulator);
-    
-    // Calculate cost without optimization
-    const costWithoutOpt = calculateCostWithoutOptimization(optimizedData);
-    setCostWithoutOptimization(costWithoutOpt);
+    runSimulation(updatedData);
   };
 
-  const handleClearLog = () => {
-    runFullSimulation();
-  };
+
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-50">
@@ -291,7 +241,6 @@ export function EnergyFlowSimulator() {
           <EditableDataTable
             data={simulationData}
             onDataChange={handleDataChange}
-            onClearLog={handleClearLog}
             onExportData={handleExportData}
             isSimulationRunning={false}
           />

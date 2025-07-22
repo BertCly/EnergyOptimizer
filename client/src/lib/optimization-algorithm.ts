@@ -177,33 +177,38 @@ function shouldChargeNow(
   let pvSurplusEnergy = 0; // kWh reeds verwacht voor een tekort
   let futureDeficit = 0;   // energie die moet worden bijgeladen (kWh)
 
+  // Bereken effectieve prijs voor laden rekening houdend met round-trip efficiency
+  const effectiveChargePrice = current.consumptionPrice / config.batteryRoundTripEfficiency;
+  
   // Verzamel slots tot aan (maar exclusief) de eerste slot met een goedkopere prijs
   const slotsUntilCheaper = [];
-  const slotsUntilMoreExpensive = [];
   for (const s of lookahead) {
     if (s.consumptionPrice < current.consumptionPrice) break;
     slotsUntilCheaper.push(s);
   }
-  for (const s of lookahead) {
-    if (s.consumptionPrice > current.consumptionPrice) break;
-    slotsUntilMoreExpensive.push(s);
+
+  // Filter uit slotsUntilCheaper de slots die voldoende duurder zijn dan de effectieve laadprijs
+  const moreExpensiveSlots = [];
+  for (const s of slotsUntilCheaper) {
+    const priceDifference = s.consumptionPrice - effectiveChargePrice;
+    if (priceDifference >= config.batteryMinPriceDifference) {
+      moreExpensiveSlots.push(s);
+    }
   }
 
-  // Als er geen slot is met een duurdere prijs in de lookahead, hoeft de batterij niet opgeladen te worden
-  if (slotsUntilMoreExpensive.length === lookahead.length) {
-    // Er is geen duurdere slot gevonden in de lookahead
+  // Als er geen slots zijn die duurder zijn dan de effectieve laadprijs, hoeft de batterij niet opgeladen te worden
+  if (moreExpensiveSlots.length === 0) {
+    // Er zijn geen slots gevonden die duurder zijn dan de effectieve laadprijs
     // Dus: niet laden voor toekomstige tekorten, want het wordt niet duurder
     // (futureDeficit blijft 0)
   } else {
-    // Bereken het totale tekort aan energie (consumptie - pvForecast) over deze slots
+    // Bereken het totale tekort aan energie (consumptie - pvForecast) over de winstgevende slots
     let totalDeficit = 0;
     let pvSurplusBuffer = pvSurplusEnergy;
-    for (const s of slotsUntilCheaper) {
+    for (const s of moreExpensiveSlots) {
       const net = s.consumption - s.pvForecast;
       if (net <= 0) {
         // PV overschot, buffer het.
-        // We gebruiken Math.min om te zorgen dat de buffer nooit groter wordt dan de beschikbare batterijcapaciteit.
-        // Dit voorkomt dat we meer energie in de buffer stoppen dan de batterij aankan.
         pvSurplusBuffer = Math.min(
           pvSurplusBuffer + (-net) * 0.25,
           availableCapacity
@@ -225,14 +230,17 @@ function shouldChargeNow(
       // Bepaal extraNeeded als het minimum van (totalDeficit - energyInBattery) en availableCapacity, maar nooit negatief
       const extraNeeded = Math.max(0, Math.min(totalDeficit - energyInBattery, availableCapacity));
       futureDeficit = extraNeeded;
+      
+      return {
+        power: Math.min(futureDeficit / 0.25, config.maxChargeRate),
+        reason: `charge for future deficit of ${futureDeficit.toFixed(2)} kWh (covering until ${(() => {
+          const lastSlot = moreExpensiveSlots[moreExpensiveSlots.length - 1];
+          if (!lastSlot) return '';
+          const endTime = new Date(lastSlot.time.getTime() + 15 * 60 * 1000); // add 15 minutes
+          return endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        })()})`
+      };
     }
-  }
-
-  if (futureDeficit > 0) {
-    return {
-      power: Math.min(futureDeficit / 0.25, config.maxChargeRate),
-      reason: `charge for future deficit of ${futureDeficit.toFixed(2)} kWh (next 6h balance)`
-    };
   }
   // --- Einde blok 3: Vooruitkijken naar toekomstige tekorten ---
 
