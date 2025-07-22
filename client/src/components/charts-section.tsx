@@ -535,15 +535,27 @@ export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps)
 
   // Initialize PV inverter chart when section is expanded
   useEffect(() => {
-    if (pvInverterChartOpen && !pvInverterChartInstance.current) {
+    if (pvInverterChartOpen) {
+      // Destroy existing chart if config changed
+      if (pvInverterChartInstance.current) {
+        pvInverterChartInstance.current.destroy();
+        pvInverterChartInstance.current = null;
+      }
+      
       // Small delay to ensure the DOM is ready
       const timer = setTimeout(() => {
         initPvInverterChart();
       }, 100);
       
       return () => clearTimeout(timer);
+    } else {
+      // Destroy chart when section is collapsed
+      if (pvInverterChartInstance.current) {
+        pvInverterChartInstance.current.destroy();
+        pvInverterChartInstance.current = null;
+      }
     }
-  }, [pvInverterChartOpen]);
+  }, [pvInverterChartOpen, config.pvInverters]);
 
   return (
     <div className="space-y-6">

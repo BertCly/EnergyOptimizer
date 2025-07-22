@@ -4,6 +4,7 @@ import { Zap } from "lucide-react";
 import { ConfigurationPanel } from "./configuration-panel";
 import { ChartsSection } from "./charts-section";
 import { EditableDataTable } from "./editable-data-table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { SiteEnergyConfig, SimulationDataPoint, siteEnergyConfigSchema } from "@shared/schema";
 import { SIMULATION_SLOTS, TOTAL_SLOTS } from "@/lib/fixed-data";
@@ -17,8 +18,44 @@ export function EnergyFlowSimulator() {
   const [currentSlot, setCurrentSlot] = useState(SIMULATION_SLOTS - 1);
 
   const [totalCost, setTotalCost] = useState(0);
+  const [costWithoutOptimization, setCostWithoutOptimization] = useState(0);
 
+  // Calculate cost without optimization algorithm
+  const calculateCostWithoutOptimization = (data: SimulationDataPoint[]) => {
+    let totalCostWithoutOpt = 0;
+    let controllableLoadCost = 0;
+    let controllableLoadQuarters = 0;
 
+    // Calculate base cost per quarter: (consumption - PV) * price
+    for (let slot = 0; slot < SIMULATION_SLOTS; slot++) {
+      const current = data[slot];
+      
+      // Calculate net power without battery or controllable load
+      const netPowerWithoutOpt = current.consumption - current.pvGeneration;
+      
+      // Calculate cost for this interval (15 minutes = 0.25 hours)
+      // Prices are in €/MWh, so divide by 1000 to get €/kWh for calculation
+      const pricePerKWh = (netPowerWithoutOpt >= 0 ? current.consumptionPrice : current.injectionPrice) / 1000;
+      const quarterCost = netPowerWithoutOpt * pricePerKWh * 0.25;
+      
+      totalCostWithoutOpt += quarterCost;
+      
+      // Count quarters where controllable load would be active
+      if (current.loadState) {
+        controllableLoadQuarters++;
+      }
+    }
+    
+    // Add controllable load cost: quarters * average consumption price * load power * 0.25h
+    if (controllableLoadQuarters > 0) {
+      const averageConsumptionPrice = data.slice(0, SIMULATION_SLOTS)
+        .reduce((sum, d) => sum + d.consumptionPrice, 0) / SIMULATION_SLOTS;
+      
+      controllableLoadCost = controllableLoadQuarters * (averageConsumptionPrice / 1000) * config.loadNominalPower * 0.25;
+    }
+    
+    return totalCostWithoutOpt + controllableLoadCost;
+  };
 
   const runFullSimulation = () => {
     const data = generateSimulationData(config, scenario, TOTAL_SLOTS);
@@ -79,6 +116,10 @@ export function EnergyFlowSimulator() {
 
     setSimulationData(optimizedData);
     setTotalCost(totalCostAccumulator);
+    
+    // Calculate cost without optimization
+    const costWithoutOpt = calculateCostWithoutOptimization(optimizedData);
+    setCostWithoutOptimization(costWithoutOpt);
   };
 
   // Run simulation on component mount and when config or scenario changes
@@ -168,6 +209,10 @@ export function EnergyFlowSimulator() {
 
     setSimulationData(optimizedData);
     setTotalCost(totalCostAccumulator);
+    
+    // Calculate cost without optimization
+    const costWithoutOpt = calculateCostWithoutOptimization(optimizedData);
+    setCostWithoutOptimization(costWithoutOpt);
   };
 
   const handleClearLog = () => {
@@ -185,12 +230,41 @@ export function EnergyFlowSimulator() {
             <h1 className="text-xl font-semibold text-gray-50">Energy Optimization Simulator</h1>
           </div>
           <div className="flex items-center space-x-4">
-            <div className="text-right">
-              <div className="text-sm text-gray-400">Totale Kosten</div>
-              <div className="text-lg font-semibold text-green-400">
-                €{totalCost.toFixed(2)}
-              </div>
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="text-right cursor-help">
+                  <div className="text-sm text-gray-400">Total Cost</div>
+                  <div className="text-lg font-semibold text-green-400">
+                    €{totalCost.toFixed(2)}
+                  </div>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-sm">
+                <div className="space-y-2">
+                  <div className="font-semibold">Cost Comparison</div>
+                  <div className="text-sm">
+                    <div className="flex justify-between">
+                      <span>With optimization:</span>
+                      <span className="text-green-400">€{totalCost.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Without optimization:</span>
+                      <span className="text-red-400">€{costWithoutOptimization.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-1 mt-1">
+                      <span>Savings:</span>
+                      <span className="text-blue-400">€{(costWithoutOptimization - totalCost).toFixed(2)}</span>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-400 mt-2">
+                    <div className="font-medium">Calculation without optimization:</div>
+                    <div>• Per quarter: (Consumption - PV) × Price × 0.25h</div>
+                    <div>• Plus controllable load cost (without optimization)</div>
+                    <div>• No battery optimization or curtailment</div>
+                  </div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </header>
