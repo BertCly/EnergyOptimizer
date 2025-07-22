@@ -26,7 +26,7 @@ export function ConfigurationPanel({ config, onConfigChange, scenario, onScenari
   const [openGrid, setOpenGrid] = useState(false)
   const [openPv, setOpenPv] = useState(false)
 
-  const updateConfig = (field: keyof SiteEnergyConfig, value: number) => {
+  const updateConfig = (field: keyof SiteEnergyConfig, value: number | string) => {
     onConfigChange({
       ...config,
       [field]: value,
@@ -81,6 +81,154 @@ export function ConfigurationPanel({ config, onConfigChange, scenario, onScenari
             <option value="priceSpike">Price spike (12:00-14:00)</option>
             <option value="random">Random</option>
           </select>
+        </CardContent>
+      </Card>
+
+      {/* Optimization Strategy Selection */}
+      <Card className="bg-gray-800 border-gray-700">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold text-gray-50">Optimization Strategy</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center space-x-2">
+                <Label htmlFor="optimizationStrategy" className="text-sm font-medium text-gray-300">
+                  Strategy
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info className="w-4 h-4 text-gray-400" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-sm">
+                    <div className="space-y-2">
+                      <p className="font-medium">Optimization Strategy</p>
+                      <div className="space-y-1 text-sm">
+                        <p><strong>Cost Optimization:</strong> Uses electricity prices to minimize costs. Charges during low prices, discharges during high prices, and optimizes load scheduling.</p>
+                        <p><strong>Peak Shaving:</strong> Uses grid power thresholds to smooth consumption peaks. Discharges when grid power is high, charges when grid power is low.</p>
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <select
+                id="optimizationStrategy"
+                className="mt-1 bg-gray-700 border-gray-600 text-gray-50 w-full"
+                value={config.optimizationStrategy}
+                onChange={e => updateConfig('optimizationStrategy', e.target.value)}
+              >
+                <option value="cost_optimization">Cost Optimization</option>
+                <option value="peak_shaving">Peak Shaving</option>
+              </select>
+            </div>
+
+            {/* Peak Shaving Configuration - only show when peak shaving strategy is selected */}
+            {config.optimizationStrategy === "peak_shaving" && (
+              <div className="space-y-4 pt-4 border-t border-gray-600">
+                <h4 className="text-sm font-medium text-gray-300">Peak Shaving Thresholds</h4>
+                
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor="peakShavingDischargeStart" className="text-sm font-medium text-gray-300">
+                      Start Discharge Above (kW)
+                    </Label>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="w-4 h-4 text-gray-400" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Above this grid power, the storage will discharge to level off grid power to this threshold</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Input
+                    id="peakShavingDischargeStart"
+                    type="number"
+                    min="0"
+                    max="1000"
+                    value={config.peakShavingDischargeStart}
+                    onChange={(e) => updateConfig('peakShavingDischargeStart', parseFloat(e.target.value))}
+                    className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor="peakShavingDischargeStop" className="text-sm font-medium text-gray-300">
+                      Stop Discharging Below (kW)
+                    </Label>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="w-4 h-4 text-gray-400" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>When discharging, stop as soon as grid power drops below this threshold</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Input
+                    id="peakShavingDischargeStop"
+                    type="number"
+                    min="0"
+                    max="1000"
+                    value={config.peakShavingDischargeStop}
+                    onChange={(e) => updateConfig('peakShavingDischargeStop', parseFloat(e.target.value))}
+                    className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor="peakShavingChargeStop" className="text-sm font-medium text-gray-300">
+                      Stop Charging Above (kW)
+                    </Label>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="w-4 h-4 text-gray-400" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>When charging, stop as soon as grid power rises above this threshold. Negative values mean the system is exporting power to the grid.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Input
+                    id="peakShavingChargeStop"
+                    type="number"
+                    min="-1000"
+                    max="1000"
+                    value={config.peakShavingChargeStop}
+                    onChange={(e) => updateConfig('peakShavingChargeStop', parseFloat(e.target.value))}
+                    className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor="peakShavingChargeStart" className="text-sm font-medium text-gray-300">
+                      Start Charging Below (kW)
+                    </Label>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="w-4 h-4 text-gray-400" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Below this grid power, the storage will charge to level off grid power to this threshold. Negative values mean the system is exporting power to the grid.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Input
+                    id="peakShavingChargeStart"
+                    type="number"
+                    min="-1000"
+                    max="1000"
+                    value={config.peakShavingChargeStart}
+                    onChange={(e) => updateConfig('peakShavingChargeStart', parseFloat(e.target.value))}
+                    className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-500"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 

@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+// Optimization Strategy Enum
+export const optimizationStrategySchema = z.enum(["cost_optimization", "peak_shaving"]);
+
 // PV Inverter Schema
 export const pvInverterSchema = z.object({
   id: z.string(),
@@ -15,6 +18,15 @@ export const pvInverterGenerationSchema = z.object({
 
 // Site Energy Configuration Schema
 export const siteEnergyConfigSchema = z.object({
+  // Optimization strategy
+  optimizationStrategy: optimizationStrategySchema.default("cost_optimization"),
+  
+  // Peak shaving thresholds (only used in peak_shaving strategy)
+  peakShavingDischargeStart: z.number().min(0).max(1000).default(30), // kW - Start discharge above this grid power
+  peakShavingDischargeStop: z.number().min(0).max(1000).default(25),  // kW - Stop discharging below this grid power
+  peakShavingChargeStop: z.number().min(-1000).max(1000).default(0),      // kW - Stop charging above this grid power
+  peakShavingChargeStart: z.number().min(-1000).max(1000).default(-1),      // kW - Start charging below this grid power
+  
   batteryCapacity: z.number().min(10).max(1000).default(200),
   maxChargeRate: z.number().min(1).max(500).default(200),
   maxDischargeRate: z.number().min(1).max(500).default(200),
@@ -70,6 +82,7 @@ export const controlDecisionSchema = z.object({
 });
 
 // Export types
+export type OptimizationStrategy = z.infer<typeof optimizationStrategySchema>;
 export type SiteEnergyConfig = z.infer<typeof siteEnergyConfigSchema>;
 export type PvInverter = z.infer<typeof pvInverterSchema>;
 export type PvInverterGeneration = z.infer<typeof pvInverterGenerationSchema>;
