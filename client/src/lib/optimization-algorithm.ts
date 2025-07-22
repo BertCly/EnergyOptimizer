@@ -169,8 +169,8 @@ function shouldChargeNow(
   }
 
   // --- Blok 3: Vooruitkijken naar toekomstige tekorten en bepalen of laden nodig is ---
-  // Kijk 6 uur vooruit (24 kwartieren)
-  const lookahead = forecast.slice(1, 25);
+  // Kijk 8 uur vooruit (32 kwartieren)
+  const lookahead = forecast.slice(1, 33);
   const availableCapacity =
     ((config.maxSoc - current.soc) / 100) * config.batteryCapacity;
 
@@ -180,16 +180,27 @@ function shouldChargeNow(
   // Bereken effectieve prijs voor laden rekening houdend met round-trip efficiency
   const effectiveChargePrice = current.consumptionPrice / config.batteryRoundTripEfficiency;
   
-  // Verzamel slots tot aan (maar exclusief) de eerste slot met een goedkopere prijs
-  const slotsUntilCheaper = [];
-  for (const s of lookahead) {
-    if (s.consumptionPrice < current.consumptionPrice) break;
-    slotsUntilCheaper.push(s);
-  }
+  // Bepaal welke slots we gebruiken om moreExpensiveSlots te zoeken
+  const slotsToCheck = (() => {
+    // Als het eerste slot al goedkoper is, dan geen provisie nodig
+    if (lookahead.length > 0 && lookahead[0].consumptionPrice < current.consumptionPrice) {
+      return [];
+    }
+    
+    // Verzamel slots tot aan (maar exclusief) de eerste slot met een goedkopere prijs
+    const slotsUntilCheaper = [];
+    for (const slot of lookahead) {
+      if (slot.consumptionPrice < current.consumptionPrice) break;
+      slotsUntilCheaper.push(slot);
+    }
+    
+    // Als er duurdere slots zijn gevonden, gebruik die. Anders gebruik de hele lookahead
+    return slotsUntilCheaper.length > 0 ? slotsUntilCheaper : lookahead;
+  })();
 
-  // Filter uit slotsUntilCheaper de slots die voldoende duurder zijn dan de effectieve laadprijs
+  // Filter uit slotsToCheck de slots die voldoende duurder zijn dan de effectieve laadprijs
   const moreExpensiveSlots = [];
-  for (const s of slotsUntilCheaper) {
+  for (const s of slotsToCheck) {
     const priceDifference = s.consumptionPrice - effectiveChargePrice;
     if (priceDifference >= config.batteryMinPriceDifference) {
       moreExpensiveSlots.push(s);
