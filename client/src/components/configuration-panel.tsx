@@ -25,8 +25,9 @@ export function ConfigurationPanel({ config, onConfigChange, scenario, onScenari
   const [openLoad, setOpenLoad] = useState(false)
   const [openGrid, setOpenGrid] = useState(false)
   const [openPv, setOpenPv] = useState(false)
+  const [openTrading, setOpenTrading] = useState(false)
 
-  const updateConfig = (field: keyof SiteEnergyConfig, value: number | string) => {
+  const updateConfig = (field: keyof SiteEnergyConfig, value: number | string | boolean) => {
     onConfigChange({
       ...config,
       [field]: value,
@@ -121,6 +122,8 @@ export function ConfigurationPanel({ config, onConfigChange, scenario, onScenari
                 <option value="peak_shaving">Peak Shaving</option>
               </select>
             </div>
+
+
 
             {/* Peak Shaving Configuration - only show when peak shaving strategy is selected */}
             {config.optimizationStrategy === "peak_shaving" && (
@@ -231,6 +234,54 @@ export function ConfigurationPanel({ config, onConfigChange, scenario, onScenari
           </div>
         </CardContent>
       </Card>
+
+      <Collapsible open={openTrading} onOpenChange={setOpenTrading}>
+        <Card className="bg-gray-800 border-gray-700">
+          <CardHeader className="flex items-center justify-between">
+            <CardTitle className="text-lg font-semibold text-gray-50">Trading Signal Integration</CardTitle>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-gray-400">
+                <ChevronDown className={cn("h-4 w-4 transition-transform", openTrading ? "rotate-180" : "")} />
+              </Button>
+            </CollapsibleTrigger>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent className="space-y-4">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <Label htmlFor="tradingSignalEnabled" className="text-sm font-medium text-gray-300">
+                    Enable Trading Signal
+                  </Label>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="w-4 h-4 text-gray-400" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-sm">
+                      <div className="space-y-2">
+                        <p className="font-medium">Trading Signal Integration</p>
+                        <div className="space-y-1 text-sm">
+                          <p>Enable integration with external trading partners (Yuso, Centrica, Trevi) for energy market participation.</p>
+                          <p><strong>Note:</strong> When enabled, trading signals take priority over local optimization algorithms.</p>
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <select
+                  id="tradingSignalEnabled"
+                  className="mt-1 bg-gray-700 border-gray-600 text-gray-50 w-full"
+                  value={config.tradingSignalEnabled ? "true" : "false"}
+                  onChange={e => updateConfig('tradingSignalEnabled', e.target.value === "true")}
+                >
+                  <option value="false">Disabled</option>
+                  <option value="true">Enabled</option>
+                </select>
+              </div>
+
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       <Collapsible open={openPv} onOpenChange={setOpenPv}>
         <Card className="bg-gray-800 border-gray-700">

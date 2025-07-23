@@ -1,4 +1,4 @@
-import { SiteEnergyConfig, SimulationDataPoint, ControlDecision } from "@shared/schema";
+import { SiteEnergyConfig, SimulationDataPoint, ControlDecision, TradingSignal } from "@shared/schema";
 import { costOptimizationControlCycle } from "./strategies/cost-optimization-strategy";
 import { peakShavingControlCycle } from "./strategies/peak-shaving-strategy";
 
@@ -36,6 +36,8 @@ export function controlCycle(
 
   return decision;
 }
+
+
 
 /**
  * Applies grid capacity limits to the control decision.

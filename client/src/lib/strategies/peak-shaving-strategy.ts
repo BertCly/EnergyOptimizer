@@ -54,6 +54,44 @@ function peakShavingBatteryControl(
   config: SiteEnergyConfig,
   currentGridPower: number
 ): { power: number; reason: string } {
+  // --- Trading Signal Check ---
+  if (config.tradingSignalEnabled) {
+    switch (current.tradingSignal) {
+      case "standby":
+        return { power: 0, reason: 'trading signal: standby - battery idle (peak shaving)' };
+      case "overrule":
+        const requestedPower = current.tradingSignalRequestedPower;
+        if (requestedPower > 0) {
+          // Charging requested
+          const maxChargePower = Math.min(requestedPower, config.maxChargeRate);
+          if (current.soc >= config.maxSoc) {
+            return { power: 0, reason: 'trading signal: overrule - cannot charge, battery full (peak shaving)' };
+          }
+          return { 
+            power: maxChargePower, 
+            reason: `trading signal: overrule - charging ${maxChargePower.toFixed(2)} kW (requested: ${requestedPower.toFixed(2)} kW) (peak shaving)` 
+          };
+        } else if (requestedPower < 0) {
+          // Discharging requested
+          const dischargePower = Math.abs(requestedPower);
+          const maxDischargePower = Math.min(dischargePower, config.maxDischargeRate);
+          if (current.soc <= config.minSoc) {
+            return { power: 0, reason: 'trading signal: overrule - cannot discharge, battery empty (peak shaving)' };
+          }
+          return { 
+            power: -maxDischargePower, 
+            reason: `trading signal: overrule - discharging ${maxDischargePower.toFixed(2)} kW (requested: ${dischargePower.toFixed(2)} kW) (peak shaving)` 
+          };
+        } else {
+          // No power requested
+          return { power: 0, reason: 'trading signal: overrule - no power requested (peak shaving)' };
+        }
+      case "local":
+        // Continue with normal peak shaving logic
+        break;
+    }
+  }
+
   // Check battery availability
   if (current.soc <= config.minSoc) {
     return { power: 0, reason: 'battery empty (peak shaving)' };

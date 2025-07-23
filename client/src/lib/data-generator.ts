@@ -9,6 +9,165 @@ export type SimulationScenario =
   | 'priceSpike'
   | 'random';
 
+/**
+ * Generates trading signal data based on scenario and time
+ */
+function generateTradingSignalData(
+  scenario: SimulationScenario, 
+  hour: number, 
+  slotIndex: number, 
+  config: SiteEnergyConfig
+): { tradingSignal: "standby" | "local" | "overrule"; tradingSignalRequestedPower: number } {
+  
+  // More random base trading signal pattern
+  let tradingSignal: "standby" | "local" | "overrule" = "local";
+  let tradingSignalRequestedPower = 0;
+
+  // Add more randomness to all scenarios
+  const randomFactor = Math.random();
+
+  // Scenario-specific trading signal patterns with increased randomness
+  switch (scenario) {
+    case 'eveningHighPrice':
+      // During evening peak (18-22h), trading partners might request overrule for grid stability
+      if (hour >= 18 && hour <= 22) {
+        if (Math.random() < 0.4 + randomFactor * 0.3) { // 40-70% chance of overrule during peak
+          tradingSignal = "overrule";
+          // Request discharge during peak (negative power) with more variation
+          tradingSignalRequestedPower = -(15 + Math.random() * 45); // -15 to -60 kW
+        } else if (Math.random() < 0.2) { // 20% chance of standby
+          tradingSignal = "standby";
+        }
+      } else {
+        // Random trading signals outside peak hours too
+        if (Math.random() < 0.15) {
+          tradingSignal = "overrule";
+          tradingSignalRequestedPower = (Math.random() - 0.5) * 80; // -40 to +40 kW
+        } else if (Math.random() < 0.1) {
+          tradingSignal = "standby";
+        }
+      }
+      break;
+
+    case 'negativeDayPrice':
+      // During negative prices, trading partners might request charging
+      if (hour >= 9 && hour <= 16) {
+        if (Math.random() < 0.5 + randomFactor * 0.3) { // 50-80% chance of overrule during negative prices
+          tradingSignal = "overrule";
+          // Request charging during negative prices (positive power) with more variation
+          tradingSignalRequestedPower = 25 + Math.random() * 55; // 25 to 80 kW
+        } else if (Math.random() < 0.15) {
+          tradingSignal = "standby";
+        }
+      } else {
+        // Random trading signals outside negative price hours
+        if (Math.random() < 0.2) {
+          tradingSignal = "overrule";
+          tradingSignalRequestedPower = (Math.random() - 0.5) * 90; // -45 to +45 kW
+        } else if (Math.random() < 0.1) {
+          tradingSignal = "standby";
+        }
+      }
+      break;
+
+    case 'priceSpike':
+      // During price spike (12-14h), trading partners might request discharge
+      if (hour >= 12 && hour <= 14) {
+        if (Math.random() < 0.6 + randomFactor * 0.3) { // 60-90% chance of overrule during spike
+          tradingSignal = "overrule";
+          // Request discharge during price spike (negative power) with more variation
+          tradingSignalRequestedPower = -(20 + Math.random() * 50); // -20 to -70 kW
+        } else if (Math.random() < 0.15) {
+          tradingSignal = "standby";
+        }
+      } else {
+        // Random trading signals outside spike hours
+        if (Math.random() < 0.25) {
+          tradingSignal = "overrule";
+          tradingSignalRequestedPower = (Math.random() - 0.5) * 100; // -50 to +50 kW
+        } else if (Math.random() < 0.12) {
+          tradingSignal = "standby";
+        }
+      }
+      break;
+
+    case 'startupPeak':
+      // During startup peak (8-9h), trading partners might request standby
+      if (hour >= 8 && hour <= 9) {
+        if (Math.random() < 0.3 + randomFactor * 0.2) { // 30-50% chance of standby during startup
+          tradingSignal = "standby";
+        } else if (Math.random() < 0.25) {
+          tradingSignal = "overrule";
+          tradingSignalRequestedPower = (Math.random() - 0.5) * 70; // -35 to +35 kW
+        }
+      } else {
+        // Random trading signals outside startup hours
+        if (Math.random() < 0.2) {
+          tradingSignal = "overrule";
+          tradingSignalRequestedPower = (Math.random() - 0.5) * 85; // -42.5 to +42.5 kW
+        } else if (Math.random() < 0.15) {
+          tradingSignal = "standby";
+        }
+      }
+      break;
+
+    case 'random':
+      // Highly random trading signal patterns
+      const randomValue = Math.random();
+      if (randomValue < 0.6 + randomFactor * 0.2) { // 60-80% local optimization
+        tradingSignal = "local";
+      } else if (randomValue < 0.8 + randomFactor * 0.15) { // 20-35% overrule
+        tradingSignal = "overrule";
+        // Random requested power between -60 and +60 kW
+        tradingSignalRequestedPower = (Math.random() - 0.5) * 120;
+      } else {
+        tradingSignal = "standby"; // 5-20% standby
+      }
+      break;
+
+    default:
+      // Default scenario: more random trading signals
+      const timeRandom = Math.random();
+      if (hour >= 10 && hour <= 16) {
+        // During business hours, more frequent overrule requests
+        if (timeRandom < 0.2 + randomFactor * 0.15) { // 20-35% chance
+          tradingSignal = "overrule";
+          // Random requested power with more variation
+          tradingSignalRequestedPower = (Math.random() - 0.5) * 80; // -40 to +40 kW
+        } else if (timeRandom < 0.25 + randomFactor * 0.1) { // 25-35% chance
+          tradingSignal = "standby";
+        }
+      } else if (hour >= 22 || hour <= 6) {
+        // During night hours, more random patterns
+        if (timeRandom < 0.15 + randomFactor * 0.1) { // 15-25% chance
+          tradingSignal = "standby";
+        } else if (timeRandom < 0.25 + randomFactor * 0.1) { // 25-35% chance
+          tradingSignal = "overrule";
+          tradingSignalRequestedPower = (Math.random() - 0.5) * 60; // -30 to +30 kW
+        }
+      } else {
+        // Other hours with random patterns
+        if (timeRandom < 0.15 + randomFactor * 0.1) { // 15-25% chance
+          tradingSignal = "overrule";
+          tradingSignalRequestedPower = (Math.random() - 0.5) * 70; // -35 to +35 kW
+        } else if (timeRandom < 0.2 + randomFactor * 0.1) { // 20-30% chance
+          tradingSignal = "standby";
+        }
+      }
+      break;
+  }
+
+  // Ensure requested power is within battery limits
+  if (tradingSignal === "overrule") {
+    tradingSignalRequestedPower = Math.max(
+      -config.maxDischargeRate,
+      Math.min(config.maxChargeRate, tradingSignalRequestedPower)
+    );
+  }
+
+  return { tradingSignal, tradingSignalRequestedPower };
+}
+
 export function generateSimulationData(config: SiteEnergyConfig, scenario: SimulationScenario, slots: number = 48): SimulationDataPoint[] {
   const data: SimulationDataPoint[] = [];
   const startTime = new Date();
@@ -161,6 +320,9 @@ export function generateSimulationData(config: SiteEnergyConfig, scenario: Simul
       }
     }
 
+    // Generate trading signal data based on scenario and time
+    const { tradingSignal, tradingSignalRequestedPower } = generateTradingSignalData(scenario, hour, i, config);
+
     data.push({
       time,
       timeString: time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
@@ -179,6 +341,8 @@ export function generateSimulationData(config: SiteEnergyConfig, scenario: Simul
       loadDecisionReason: '',
       batteryDecisionReason: '',
       curtailmentDecisionReason: '',
+      tradingSignal,
+      tradingSignalRequestedPower,
     });
   }
 

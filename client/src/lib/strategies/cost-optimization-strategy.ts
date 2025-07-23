@@ -131,6 +131,36 @@ function shouldChargeNow(
   config: SiteEnergyConfig,
   forecast: SimulationDataPoint[]
 ): { power: number; reason: string } {
+  // --- Blok 0: Trading Signal Check ---
+  if (config.tradingSignalEnabled) {
+    switch (current.tradingSignal) {
+      case "standby":
+        return { power: 0, reason: 'trading signal: standby - battery idle' };
+      case "overrule":
+        const requestedPower = current.tradingSignalRequestedPower;
+        if (requestedPower > 0) {
+          // Charging requested
+          const maxChargePower = Math.min(requestedPower, config.maxChargeRate);
+          if (current.soc >= config.maxSoc) {
+            return { power: 0, reason: 'trading signal: overrule - cannot charge, battery full' };
+          }
+          return { 
+            power: maxChargePower, 
+            reason: `trading signal: overrule - charging ${maxChargePower.toFixed(2)} kW (requested: ${requestedPower.toFixed(2)} kW)` 
+          };
+        } else if (requestedPower < 0) {
+          // Discharging requested - handled in shouldDischargeNow
+          return { power: 0, reason: 'trading signal: overrule - discharging requested (handled in discharge logic)' };
+        } else {
+          // No power requested
+          return { power: 0, reason: 'trading signal: overrule - no power requested' };
+        }
+      case "local":
+        // Continue with normal optimization logic
+        break;
+    }
+  }
+
   // --- Blok 1: Maximale SoC-check ---
   if (current.soc >= config.maxSoc) {
     return { power: 0, reason: 'battery full' };
@@ -466,6 +496,37 @@ function shouldDischargeNow(
   loadState: boolean,
   forecast: SimulationDataPoint[]
 ): { power: number; reason: string } {
+  // --- Blok 0: Trading Signal Check ---
+  if (config.tradingSignalEnabled) {
+    switch (current.tradingSignal) {
+      case "standby":
+        return { power: 0, reason: 'trading signal: standby - battery idle' };
+      case "overrule":
+        const requestedPower = current.tradingSignalRequestedPower;
+        if (requestedPower < 0) {
+          // Discharging requested
+          const dischargePower = Math.abs(requestedPower);
+          const maxDischargePower = Math.min(dischargePower, config.maxDischargeRate);
+          if (current.soc <= config.minSoc) {
+            return { power: 0, reason: 'trading signal: overrule - cannot discharge, battery empty' };
+          }
+          return { 
+            power: maxDischargePower, 
+            reason: `trading signal: overrule - discharging ${maxDischargePower.toFixed(2)} kW (requested: ${dischargePower.toFixed(2)} kW)` 
+          };
+        } else if (requestedPower > 0) {
+          // Charging requested - handled in shouldChargeNow
+          return { power: 0, reason: 'trading signal: overrule - charging requested (handled in charge logic)' };
+        } else {
+          // No power requested
+          return { power: 0, reason: 'trading signal: overrule - no power requested' };
+        }
+      case "local":
+        // Continue with normal optimization logic
+        break;
+    }
+  }
+
   // 0. Beschikbaarheid batterij-energie controleren
   if (current.soc <= config.minSoc) {
     return { power: 0, reason: 'battery empty' };

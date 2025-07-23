@@ -87,6 +87,7 @@ export function EnergyFlowSimulator() {
       current.loadDecisionReason = decision.loadDecisionReason;
       current.batteryDecisionReason = decision.batteryDecisionReason;
       current.curtailmentDecisionReason = decision.curtailmentDecisionReason;
+      // tradingSignal en tradingSignalRequestedPower blijven ongewijzigd - dit zijn input waarden
 
       // Account for controllable load increasing consumption when ON
       let effectiveConsumption = current.consumption;
@@ -151,10 +152,10 @@ export function EnergyFlowSimulator() {
     
     const visibleData = simulationData.slice(0, currentSlot + 1);
     const csvData = visibleData.map(d =>
-      `${d.timeString},${d.consumptionPrice.toFixed(0)},${d.injectionPrice.toFixed(0)},${d.consumption.toFixed(1)},${d.pvGeneration.toFixed(1)},${d.pvForecast?.toFixed(1) || '0.0'},${d.batteryPower.toFixed(1)},${d.soc.toFixed(1)},${d.loadState ? 'ON' : 'OFF'},${d.curtailment?.toFixed(1) || '0.0'},${d.netPower.toFixed(1)},${d.cost.toFixed(3)}`
+      `${d.timeString},${d.consumptionPrice.toFixed(0)},${d.injectionPrice.toFixed(0)},${d.consumption.toFixed(1)},${d.pvGeneration.toFixed(1)},${d.pvForecast?.toFixed(1) || '0.0'},${d.batteryPower.toFixed(1)},${d.soc.toFixed(1)},${d.loadState ? 'ON' : 'OFF'},${d.curtailment?.toFixed(1) || '0.0'},${d.tradingSignal},${d.tradingSignalRequestedPower?.toFixed(1) || '0.0'},${d.netPower.toFixed(1)},${d.cost.toFixed(3)}`
     ).join('\n');
 
-    const csv = 'Time,Consumption Price (€/MWh),Injection Price (€/MWh),Consumption (kW),PV Generation (kW),PV Forecast (kW),Battery Power (kW),SoC (%),Controllable Load,PV Curtailment (kW),Net Power (kW),Cost (€)\n' + csvData;
+    const csv = 'Time,Consumption Price (€/MWh),Injection Price (€/MWh),Consumption (kW),PV Generation (kW),PV Forecast (kW),Battery Power (kW),SoC (%),Controllable Load,PV Curtailment (kW),Trading Signal,Requested Power (kW),Net Power (kW),Cost (€)\n' + csvData;
     
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -187,8 +188,13 @@ export function EnergyFlowSimulator() {
               <TooltipTrigger asChild>
                 <div className="text-right cursor-help">
                   <div className="text-sm text-gray-400">Total Cost</div>
-                  <div className="text-lg font-semibold text-green-400">
-                    €{totalCost.toFixed(2)}
+                  <div className="flex items-center justify-end gap-2">
+                    <span className="text-sm text-gray-500 line-through">
+                      €{costWithoutOptimization.toFixed(2)}
+                    </span>
+                    <span className="text-lg font-semibold text-green-400">
+                      €{totalCost.toFixed(2)}
+                    </span>
                   </div>
                 </div>
               </TooltipTrigger>

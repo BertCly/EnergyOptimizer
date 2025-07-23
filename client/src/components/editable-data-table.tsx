@@ -21,22 +21,40 @@ export function EditableDataTable({
   const [editingCell, setEditingCell] = useState<{ row: number; field: string } | null>(null);
 
   const handleCellEdit = (rowIndex: number, field: string, value: string) => {
-    const numericValue = parseFloat(value);
-    if (isNaN(numericValue)) return;
-
     const updatedData = [...data];
     const row = updatedData[rowIndex];
     
     if (field === 'injectionPrice') {
+      const numericValue = parseFloat(value);
+      if (isNaN(numericValue)) return;
       row.injectionPrice = numericValue;
     } else if (field === 'consumptionPrice') {
+      const numericValue = parseFloat(value);
+      if (isNaN(numericValue)) return;
       row.consumptionPrice = numericValue;
     } else if (field === 'consumption') {
+      const numericValue = parseFloat(value);
+      if (isNaN(numericValue)) return;
       row.consumption = numericValue;
     } else if (field === 'pvGeneration') {
+      const numericValue = parseFloat(value);
+      if (isNaN(numericValue)) return;
       row.pvGeneration = numericValue;
     } else if (field === 'pvForecast') {
+      const numericValue = parseFloat(value);
+      if (isNaN(numericValue)) return;
       row.pvForecast = numericValue;
+    } else if (field === 'tradingSignal') {
+      // Validate trading signal value
+      if (['standby', 'local', 'overrule'].includes(value)) {
+        row.tradingSignal = value as any;
+      } else {
+        return; // Invalid value, don't update
+      }
+    } else if (field === 'tradingSignalRequestedPower') {
+      const numericValue = parseFloat(value);
+      if (isNaN(numericValue)) return;
+      row.tradingSignalRequestedPower = numericValue;
     }
 
     onDataChange(updatedData);
@@ -55,7 +73,7 @@ export function EditableDataTable({
     field, 
     className 
   }: { 
-    value: number; 
+    value: number | string; 
     rowIndex: number; 
     field: string; 
     className: string; 
@@ -65,9 +83,9 @@ export function EditableDataTable({
     if (isEditing) {
       return (
         <Input
-          type="number"
+          type={typeof value === 'number' ? 'number' : 'text'}
           step="0.001"
-          defaultValue={value.toFixed(3)}
+          defaultValue={typeof value === 'number' ? value.toFixed(3) : value}
           autoFocus
           className="w-20 h-6 px-1 py-0 text-xs bg-gray-600 border-gray-500"
           onBlur={(e) => handleCellEdit(rowIndex, field, e.target.value)}
@@ -90,7 +108,10 @@ export function EditableDataTable({
         onClick={() => handleCellClick(rowIndex, field)}
         title={!isSimulationRunning ? "Click to edit" : "Stop simulation to edit"}
       >
-        {value.toFixed(field === 'injectionPrice' || field === 'consumptionPrice' ? 0 : 1)}
+        {typeof value === 'number' 
+          ? value.toFixed(field === 'injectionPrice' || field === 'consumptionPrice' ? 0 : 1)
+          : value
+        }
       </span>
     );
   };
@@ -120,11 +141,11 @@ export function EditableDataTable({
             <thead className="border-b border-gray-700 sticky top-0 bg-gray-800">
               <tr className="text-left">
                 <th className="pb-3 text-gray-300 font-medium">Time</th>
-                <th className="pb-3 text-gray-300 font-medium">Injectie Cost (€/MWh)</th>
                 <th className="pb-3 text-gray-300 font-medium">Consumptie Cost (€/MWh)</th>
+                <th className="pb-3 text-gray-300 font-medium">Injectie Cost (€/MWh)</th>
                 <th className="pb-3 text-gray-300 font-medium">Consumption (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">PV Generation (kW)</th>
-                <th className="pb-3 text-gray-300 font-medium">PV Forecast (kW)</th>
+                <th className="pb-3 text-gray-300 font-medium">Trading Signal</th>
                 <th className="pb-3 text-gray-300 font-medium">Battery Power (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">SoC (%)</th>
                 <th className="pb-3 text-gray-300 font-medium">Extra load</th>
@@ -139,14 +160,6 @@ export function EditableDataTable({
                   <td className="py-2 text-gray-300">{row.timeString}</td>
                   <td className="py-2">
                     <EditableCell
-                      value={row.injectionPrice}
-                      rowIndex={index}
-                      field="injectionPrice"
-                      className="text-amber-400"
-                    />
-                  </td>
-                  <td className="py-2">
-                    <EditableCell
                       value={row.consumptionPrice}
                       rowIndex={index}
                       field="consumptionPrice"
@@ -155,27 +168,62 @@ export function EditableDataTable({
                   </td>
                   <td className="py-2">
                     <EditableCell
-                      value={row.consumption}
+                      value={row.injectionPrice}
                       rowIndex={index}
-                      field="consumption"
-                      className="text-red-400"
+                      field="injectionPrice"
+                      className="text-amber-400"
                     />
                   </td>
                   <td className="py-2">
-                    <EditableCell
-                      value={row.pvGeneration}
-                      rowIndex={index}
-                      field="pvGeneration"
-                      className="text-emerald-400"
-                    />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help">
+                          <EditableCell
+                            value={row.consumption}
+                            rowIndex={index}
+                            field="consumption"
+                            className="text-red-400"
+                          />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div>Consumption Forecast: {row.pvForecast?.toFixed(1) || '0.0'} kW</div>
+                      </TooltipContent>
+                    </Tooltip>
                   </td>
                   <td className="py-2">
-                    <EditableCell
-                      value={row.pvForecast}
-                      rowIndex={index}
-                      field="pvForecast"
-                      className="text-emerald-300"
-                    />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help">
+                          <EditableCell
+                            value={row.pvGeneration}
+                            rowIndex={index}
+                            field="pvGeneration"
+                            className="text-emerald-400"
+                          />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div>PV Forecast: {row.pvForecast?.toFixed(1) || '0.0'} kW</div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </td>
+                  <td className="py-2">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help">
+                          <EditableCell
+                            value={row.tradingSignal}
+                            rowIndex={index}
+                            field="tradingSignal"
+                            className="text-cyan-400 uppercase font-medium"
+                          />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div>Requested Power: {row.tradingSignalRequestedPower?.toFixed(1) || '0.0'} kW</div>
+                      </TooltipContent>
+                    </Tooltip>
                   </td>
                   <td className="py-2 text-blue-400">
                     <Tooltip>
