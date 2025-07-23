@@ -170,7 +170,7 @@ function shouldChargeNow(
     ((config.maxSoc - current.soc) / 100) * config.batteryCapacity;
 
   let pvSurplusEnergy = 0; // kWh reeds verwacht voor een tekort
-  let futureDeficit = 0;   // energie die moet worden bijgeladen (kWh)
+  let extraNeededForFutureDeficit = 0;   // energie die moet worden bijgeladen (kWh)
 
   // Bereken effectieve prijs voor laden rekening houdend met round-trip efficiency
   const effectiveChargePrice = current.consumptionPrice / config.batteryRoundTripEfficiency;
@@ -206,7 +206,7 @@ function shouldChargeNow(
   if (moreExpensiveSlots.length === 0) {
     // Er zijn geen slots gevonden die duurder zijn dan de effectieve laadprijs
     // Dus: niet laden voor toekomstige tekorten, want het wordt niet duurder
-    // (futureDeficit blijft 0)
+    // (extraNeededForFutureDeficit blijft 0)
   } else {
     // Bereken het totale tekort aan energie (consumptie - pvForecast) over de winstgevende slots
     let totalDeficit = 0;
@@ -233,13 +233,19 @@ function shouldChargeNow(
       const energyInBattery = ((current.soc - config.minSoc) / 100) * config.batteryCapacity;
 
       // Enkel bijladen tot er genoeg in de batterij zit voor het toekomstige tekort
-      // Bepaal extraNeeded als het minimum van (totalDeficit - energyInBattery) en availableCapacity, maar nooit negatief
-      const extraNeeded = Math.max(0, Math.min(totalDeficit - energyInBattery, availableCapacity));
-      futureDeficit = extraNeeded;
+      extraNeededForFutureDeficit = Math.max(0, Math.min(totalDeficit - energyInBattery, availableCapacity));
+      
+      // Bepaal hoeveel vermogen er in dit slot moet worden geladen, rekening houdend met spreiding
+      const chargePower = calculateSpreadChargePower(
+        extraNeededForFutureDeficit,
+        current,
+        forecast,
+        config
+      );
       
       return {
-        power: Math.min(futureDeficit / 0.25, config.maxChargeRate),
-        reason: `charge for future deficit of ${futureDeficit.toFixed(2)} kWh (covering until ${(() => {
+        power: chargePower,
+        reason: `charge for future deficit of ${extraNeededForFutureDeficit.toFixed(2)} kWh (covering until ${(() => {
           const lastSlot = moreExpensiveSlots[moreExpensiveSlots.length - 1];
           if (!lastSlot) return '';
           const endTime = new Date(lastSlot.time.getTime() + 15 * 60 * 1000); // add 15 minutes
@@ -403,6 +409,95 @@ function shouldDischargeNow(
     power: maxPower, 
     reason: `cover consumption (deficit: ${deficit.toFixed(2)} kW, allowed: ${allowedEnergy2.toFixed(2)} kWh, futureNeed: ${futureNeed.toFixed(2)} kWh)`
   };
+}
+
+/**
+ * Berekent hoeveel vermogen er in het huidige slot moet worden geladen,
+ * rekening houdend met spreiding over meerdere kwartieren om pieken te vermijden.
+ * 
+ * @param totalEnergyNeeded - Totale energie die moet worden geladen (kWh)
+ * @param current - Huidige simulatiepunt
+ * @param forecast - Array van toekomstige simulatiepunten
+ * @param config - Batterijconfiguratie
+ * @returns Vermogen dat in dit slot moet worden geladen (kW)
+ */
+function calculateSpreadChargePower(
+  totalEnergyNeeded: number,
+  current: SimulationDataPoint,
+  forecast: SimulationDataPoint[],
+  config: SiteEnergyConfig
+): number {
+  // Zoek naar slots met dezelfde prijs als het huidige slot
+  const currentPrice = current.consumptionPrice;
+  const samePriceSlots: number[] = [];
+  
+  // Kijk maximaal 8 uur vooruit (32 kwartieren)
+  const maxLookahead = Math.min(32, forecast.length - 1);
+  
+  for (let i = 1; i <= maxLookahead; i++) {
+    if (Math.abs(forecast[i].consumptionPrice - currentPrice) < 5) { // Kleine tolerantie voor floating point vergelijking
+      samePriceSlots.push(i);
+    } else {
+      // Stop bij de eerste slot met een andere prijs
+      break;
+    }
+  }
+  
+  // Als er geen slots met dezelfde prijs zijn, laad alles in het huidige slot
+  if (samePriceSlots.length === 0) {
+    return Math.min(totalEnergyNeeded / 0.25, config.maxChargeRate);
+  }
+  
+  // Bereken beschikbare capaciteit voor elk slot (inclusief huidige slot)
+  const availableCapacities: { slotIndex: number; capacity: number }[] = [];
+  
+  // Huidige slot
+  const currentNetConsumption = current.consumption - current.pvGeneration;
+  const currentAvailableCapacity = Math.max(0, config.gridCapacityImportLimit - currentNetConsumption);
+  availableCapacities.push({ slotIndex: 0, capacity: currentAvailableCapacity });
+  
+  // Toekomstige slots
+  for (const slotIndex of samePriceSlots) {
+    const slot = forecast[slotIndex];
+    const netConsumption = slot.consumption - slot.pvForecast;
+    const availableCapacity = Math.max(0, config.gridCapacityImportLimit - netConsumption);
+    availableCapacities.push({ slotIndex, capacity: availableCapacity });
+  }
+  
+  // Bereken totale beschikbare capaciteit over alle slots
+  const totalAvailableCapacity = availableCapacities.reduce((sum, slot) => sum + slot.capacity, 0);
+  
+  // Als er onvoldoende capaciteit is, laad alles in het huidige slot
+  if (totalAvailableCapacity <= 0) {
+    return Math.min(totalEnergyNeeded / 0.25, config.maxChargeRate);
+  }
+  
+  // Verdeel de energie proportioneel over de beschikbare capaciteit
+  let remainingEnergy = totalEnergyNeeded;
+  let currentSlotPower = 0;
+  
+  for (const slot of availableCapacities) {
+    if (remainingEnergy <= 0) break;
+    
+    // Bereken proportionele energie voor dit slot
+    const proportionalEnergy = (slot.capacity / totalAvailableCapacity) * totalEnergyNeeded;
+    const slotEnergy = Math.min(proportionalEnergy, remainingEnergy, slot.capacity * 0.25);
+    
+    // Converteer naar vermogen
+    const slotPower = slotEnergy / 0.25;
+    
+    // Beperk tot beschikbare capaciteit en maxChargeRate
+    const limitedSlotPower = Math.min(slotPower, slot.capacity, config.maxChargeRate);
+    
+    // Als dit het huidige slot is, sla het vermogen op
+    if (slot.slotIndex === 0) {
+      currentSlotPower = limitedSlotPower;
+    }
+    
+    remainingEnergy -= limitedSlotPower * 0.25;
+  }
+  
+  return currentSlotPower;
 }
 
 /**
