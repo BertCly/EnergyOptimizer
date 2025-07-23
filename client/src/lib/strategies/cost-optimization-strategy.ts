@@ -134,12 +134,9 @@ function shouldChargeNow(
   }
 
   // --- Blok 2: Negatieve prijs-check ---
-  // Laad altijd maximaal als de consumptieprijs negatief is
+  // Optimaliseer lading over negatieve prijsslots
   if (current.consumptionPrice < 0) {
-    return {
-      power: config.maxChargeRate,
-      reason: 'negative price: charge as much as possible'
-    };
+    return optimizeNegativePriceCharging(current, config, forecast);
   }
 
   // --- Blok 2.5: Voorkom laden als er een negatieve consumptieprijs aankomt ---
@@ -291,6 +288,162 @@ function shouldChargeNow(
   }
   
   return { power: 0, reason: reason };
+}
+
+/**
+ * Berekent de effectieve consumptie inclusief de controllable load
+ * 
+ * @param slot - Simulatiepunt
+ * @param config - Site configuratie
+ * @returns Effectieve consumptie in kW
+ */
+function getEffectiveConsumption(slot: SimulationDataPoint, config: SiteEnergyConfig): number {
+  let effectiveConsumption = slot.consumption;
+  
+  // Voeg controllable load toe als deze is ingesteld
+  if (config.loadNominalPower > 0) {
+    effectiveConsumption += config.loadNominalPower;
+  }
+  
+  return effectiveConsumption;
+}
+
+/**
+ * Optimaliseert lading over negatieve prijsslots door vooruit te kijken
+ * en de lading te verspreiden over de goedkoopste slots.
+ * 
+ * @param current - Huidige simulatiepunt
+ * @param config - Batterijconfiguratie
+ * @param forecast - Array van toekomstige simulatiepunten
+ * @returns { power: number, reason: string }
+ */
+function optimizeNegativePriceCharging(
+  current: SimulationDataPoint,
+  config: SiteEnergyConfig,
+  forecast: SimulationDataPoint[]
+): { power: number; reason: string } {
+  // Zoek alle slots met negatieve prijzen (inclusief huidige slot)
+  const negativePriceSlots: { index: number; price: number; slot: SimulationDataPoint }[] = [];
+  
+  // Voeg huidige slot toe als het een negatieve prijs heeft
+  if (current.consumptionPrice < 0) {
+    negativePriceSlots.push({
+      index: 0,
+      price: current.consumptionPrice,
+      slot: current
+    });
+  }
+  
+  // Kijk vooruit tot we een positieve prijs tegenkomen of maximaal 8 uur (32 kwartieren)
+  const maxLookahead = Math.min(32, forecast.length - 1);
+  
+  for (let i = 1; i <= maxLookahead; i++) {
+    const slot = forecast[i];
+    if (slot.consumptionPrice < 0) {
+      negativePriceSlots.push({
+        index: i,
+        price: slot.consumptionPrice,
+        slot: slot
+      });
+    } else {
+      // Stop zoeken zodra we een positieve prijs tegenkomen
+      break;
+    }
+  }
+  
+  // Sorteer slots op prijs (laagste eerst - meest negatief)
+  negativePriceSlots.sort((a, b) => a.price - b.price);
+  
+  // Bereken beschikbare batterijcapaciteit
+  const availableCapacity = ((config.maxSoc - current.soc) / 100) * config.batteryCapacity;
+  
+  // Groepeer slots per prijs
+  const priceGroups: { price: number; slots: typeof negativePriceSlots }[] = [];
+  let currentGroup: typeof negativePriceSlots = [];
+  let currentPrice = negativePriceSlots[0].price;
+  
+  for (const slot of negativePriceSlots) {
+    if (Math.abs(slot.price - currentPrice) < 1) { // Kleine tolerantie //TODO: verhogen
+      currentGroup.push(slot);
+    } else {
+      if (currentGroup.length > 0) {
+        priceGroups.push({ price: currentPrice, slots: currentGroup });
+      }
+      currentGroup = [slot];
+      currentPrice = slot.price;
+    }
+  }
+  
+  // Voeg laatste groep toe
+  if (currentGroup.length > 0) {
+    priceGroups.push({ price: currentPrice, slots: currentGroup });
+  }
+  
+  // Verdeel lading over slots, beginnend met goedkoopste prijs
+  let remainingEnergy = availableCapacity;
+  let currentSlotPower = 0;
+  let usedSlots: number[] = []; 
+  
+  for (const group of priceGroups) {
+    if (remainingEnergy <= 0) break;
+    
+    // Bereken totale beschikbare capaciteit voor deze prijsgroep
+    let groupGridCapacity = 0;
+    for (const slot of group.slots) {
+      const effectiveConsumption = getEffectiveConsumption(slot.slot, config);
+      // Bij negatieve prijzen wordt PV 100% gecurtailed, dus niet aftrekken
+      const netConsumption = effectiveConsumption;
+      const availableGridCapacity = Math.max(0, config.gridCapacityImportLimit - netConsumption);
+      groupGridCapacity += availableGridCapacity;
+    }
+    
+    // Bereken hoeveel energie we kunnen laden in deze prijsgroep
+    const groupEnergy = Math.min(remainingEnergy, groupGridCapacity * 0.25);
+    
+    // Verdeel energie proportioneel over slots in deze groep
+    for (const slot of group.slots) {
+      if (groupEnergy <= 0) break;
+      
+      const effectiveConsumption = getEffectiveConsumption(slot.slot, config);
+      // Bij negatieve prijzen wordt PV 100% gecurtailed, dus niet aftrekken
+      const netConsumption = effectiveConsumption;
+      const availableGridCapacity = Math.max(0, config.gridCapacityImportLimit - netConsumption);
+      const proportionalEnergy = (availableGridCapacity / groupGridCapacity) * groupEnergy;
+      const slotEnergy = Math.min(proportionalEnergy, availableGridCapacity * 0.25);
+      
+      // Converteer naar vermogen
+      const slotPower = slotEnergy / 0.25;
+      
+      // Beperk tot maxChargeRate
+      const limitedSlotPower = Math.min(slotPower, config.maxChargeRate);
+      
+      // Als dit het huidige slot is (index 0), sla het vermogen op
+      if (slot.index === 0) {
+        currentSlotPower = limitedSlotPower;
+      }
+      
+      usedSlots.push(slot.index);
+      remainingEnergy -= limitedSlotPower * 0.25;
+    }
+  }
+  
+  // Als er geen lading in huidige slot is gepland, geef reden
+  if (currentSlotPower <= 0) {
+    const cheapestPrice = priceGroups[0]?.price || 0;
+    const cheapestSlotCount = priceGroups[0]?.slots.length || 0;
+    return {
+      power: 0,
+      reason: `negative price: defer charging to ${cheapestSlotCount} slots with price ${cheapestPrice.toFixed(2)} €/MWh (optimizing compensation)`
+    };
+  }
+  
+  // Geef informatie over de optimalisatie
+  const cheapestPrice = priceGroups[0]?.price || 0;
+  const totalSlotsUsed = usedSlots.length;
+  return {
+    power: currentSlotPower,
+    reason: `negative price: optimized charging over ${totalSlotsUsed} slots (cheapest: ${cheapestPrice.toFixed(2)} €/MWh)`
+  };
 }
 
 /**
