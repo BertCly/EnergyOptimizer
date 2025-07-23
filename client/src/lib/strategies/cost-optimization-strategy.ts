@@ -1,4 +1,5 @@
 import { SiteEnergyConfig, SimulationDataPoint, ControlDecision, PvInverterGeneration } from "@shared/schema";
+import { getPreviousLoadState, getActivationRuntime, getTodayRuntime, storeLoadState } from "../storage";
 
 // Helper function to get generation for a specific PV inverter
 export function getPvInverterGeneration(
@@ -64,8 +65,7 @@ export function costOptimizationControlCycle(
   currentSlot: number,
   current: SimulationDataPoint,
   config: SiteEnergyConfig,
-  forecast: SimulationDataPoint[],
-  data: SimulationDataPoint[]
+  forecast: SimulationDataPoint[]
 ): ControlDecision {
   let decision: ControlDecision = {
     batteryPower: 0,
@@ -101,9 +101,12 @@ export function costOptimizationControlCycle(
   }
 
   // Controllable load logic
-  const loadDecision = determineLoadState(currentSlot, data, decision.batteryPower, config, current);
+  const loadDecision = determineLoadState(currentSlot, decision.batteryPower, config, current, forecast);
   decision.loadState = loadDecision.state;
   decision.loadDecisionReason = loadDecision.reason;
+  
+  // Store the load state for future reference
+  storeLoadState(currentSlot, decision.loadState);
 
   // PV curtailment logic
   const curtailmentResult = calculatePvCurtailment(current, decision, config);
@@ -700,27 +703,19 @@ function getNegativePriceLookaheadHorizon(
  */
 function determineLoadState(
   currentSlot: number,
-  data: SimulationDataPoint[],
   batteryPower: number,
   config: SiteEnergyConfig,
-  current: SimulationDataPoint
+  current: SimulationDataPoint,
+  forecast: SimulationDataPoint[]
 ): { state: boolean; reason: string } {
   // Was de load in de vorige stap actief?
-  const prevLoad = currentSlot > 0 ? data[currentSlot - 1].loadState : false;
+  const prevLoad = getPreviousLoadState(currentSlot);
 
   // Hoe lang is de load al aaneengesloten actief?
-  let activationRuntime = 0;
-  if (prevLoad) {
-    for (let i = currentSlot - 1; i >= 0 && data[i].loadState; i--) {
-      activationRuntime += 0.25;
-    }
-  }
+  const activationRuntime = getActivationRuntime(currentSlot);
 
   // Hoeveel uur is de load vandaag al actief geweest?
-  let runtimeTillNow = 0;
-  for (let i = 0; i < currentSlot; i++) {
-    if (data[i].loadState) runtimeTillNow += 0.25;
-  }
+  const runtimeTillNow = getTodayRuntime(currentSlot, current.time);
 
   // Huidige tijd en deadline berekenen
   const currentHour = current.time.getHours();
@@ -732,25 +727,35 @@ function determineLoadState(
   const today = new Date(current.time);
   today.setHours(0, 0, 0, 0);
 
-  // Verzamel alle slots van vandaag tot aan de deadline
-  const slotsToday: { index: number; point: SimulationDataPoint }[] = [];
-  for (let i = 0; i < data.length; i++) {
-    const slotTime = data[i].time;
+  // Voor de load state bepaling gebruiken we de forecast data
+  // We kunnen niet meer terugkijken naar eerdere slots van vandaag omdat we geen data array hebben
+  // Dit is een beperking van de nieuwe aanpak, maar we kunnen wel de runtime bijhouden via storage
+  
+  // Kijk vooruit vanaf currentSlot tot aan de deadline
+  const futureSlots: { index: number; point: SimulationDataPoint }[] = [];
+  
+  // Voeg huidige slot toe
+  if (currentHour < deadlineHour || (currentHour === deadlineHour && currentMinute === 0)) {
+    futureSlots.push({ index: currentSlot, point: current });
+  }
+  
+  // Voeg forecast slots toe
+  for (let i = 1; i < forecast.length; i++) {
+    const slot = forecast[i];
+    const slotTime = slot.time;
     const slotHour = slotTime.getHours();
     const slotMinute = slotTime.getMinutes();
+    
     // Alleen slots van vandaag
     const slotDay = new Date(slotTime);
     slotDay.setHours(0, 0, 0, 0);
     if (slotDay.getTime() !== today.getTime()) continue;
-    // Alleen slots tot aan de deadline (laatste slot eindigt op deadlineHour - 0.25h)
+    
+    // Alleen slots tot aan de deadline
     if (slotHour < deadlineHour || (slotHour === deadlineHour && slotMinute === 0)) {
-      // slot mag meedoen
-      slotsToday.push({ index: i, point: data[i] });
+      futureSlots.push({ index: currentSlot + i, point: slot });
     }
   }
-
-  // Kijk vooruit vanaf currentSlot tot aan de deadline
-  const futureSlots = slotsToday.filter(s => s.index >= currentSlot);
 
   // 1. Tel het aantal slots met PV-overschot >= activation power (alleen betaalbare PV)
   const pvOversupplySlots: number[] = [];

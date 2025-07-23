@@ -11,7 +11,6 @@ export function controlCycle(
 ): ControlDecision {
   const current = data[currentSlot];
   const horizon = Math.min(48, data.length - currentSlot); // 48 slots (12h) lookahead
-
   // Get forecast data
   const forecast = data.slice(currentSlot, currentSlot + horizon);
 
@@ -26,10 +25,10 @@ export function controlCycle(
 
   // Choose algorithm based on optimization strategy
   if (config.optimizationStrategy === "peak_shaving") {
-    decision = peakShavingControlCycle(currentSlot, current, config, forecast, data);
+    decision = peakShavingControlCycle(currentSlot, current, config, forecast);
   } else {
     // Default to cost optimization strategy
-    decision = costOptimizationControlCycle(currentSlot, current, config, forecast, data);
+    decision = costOptimizationControlCycle(currentSlot, current, config, forecast);
   }
 
   // Apply grid capacity limits (common for both strategies)

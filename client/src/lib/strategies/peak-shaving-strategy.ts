@@ -1,4 +1,5 @@
 import { SiteEnergyConfig, SimulationDataPoint, ControlDecision } from "@shared/schema";
+import { storeLoadState } from "../storage";
 
 /**
  * Peak shaving control cycle algorithm
@@ -8,8 +9,7 @@ export function peakShavingControlCycle(
   currentSlot: number,
   current: SimulationDataPoint,
   config: SiteEnergyConfig,
-  forecast: SimulationDataPoint[],
-  data: SimulationDataPoint[]
+  forecast: SimulationDataPoint[]
 ): ControlDecision {
   let decision: ControlDecision = {
     batteryPower: 0,
@@ -30,9 +30,12 @@ export function peakShavingControlCycle(
   decision.batteryDecisionReason = peakShavingDecision.reason;
 
   // Controllable load logic (simplified for peak shaving - just use basic logic)
-  const loadDecision = determineLoadState(currentSlot, data, decision.batteryPower, config, current);
+  const loadDecision = determineLoadState(currentSlot, decision.batteryPower, config, current);
   decision.loadState = loadDecision.state;
   decision.loadDecisionReason = loadDecision.reason;
+  
+  // Store the load state for future reference
+  storeLoadState(currentSlot, decision.loadState);
 
   // PV curtailment logic (simplified for peak shaving)
   const curtailmentResult = calculatePvCurtailment(current, decision, config);
@@ -113,7 +116,6 @@ function peakShavingBatteryControl(
  */
 function determineLoadState(
   currentSlot: number,
-  data: SimulationDataPoint[],
   batteryPower: number,
   config: SiteEnergyConfig,
   current: SimulationDataPoint

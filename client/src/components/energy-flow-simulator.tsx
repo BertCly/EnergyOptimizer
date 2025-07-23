@@ -10,6 +10,7 @@ import { SiteEnergyConfig, SimulationDataPoint, siteEnergyConfigSchema } from "@
 import { SIMULATION_SLOTS, TOTAL_SLOTS } from "@/lib/fixed-data";
 import { generateSimulationData, SimulationScenario } from "@/lib/data-generator";
 import { controlCycle } from "@/lib/optimization-algorithm";
+import { initializeSimulation } from "@/lib/storage";
 
 export function EnergyFlowSimulator() {
   const [config, setConfig] = useState<SiteEnergyConfig>(siteEnergyConfigSchema.parse({}));
@@ -65,6 +66,8 @@ export function EnergyFlowSimulator() {
     if (!inputData) {
       setCurrentSlot(SIMULATION_SLOTS - 1);
       setTotalCost(0);
+      // Initialize storage for new simulation
+      initializeSimulation();
     }
 
     const optimizedData = [...data];
