@@ -1,61 +1,10 @@
-import { SiteEnergyConfig, SimulationDataPoint, ControlDecision, PvInverterGeneration } from "@shared/schema";
+import { SiteEnergyConfig, SimulationDataPoint, ControlDecision } from "@shared/schema";
 import { getPreviousLoadState, getActivationRuntime, getTodayRuntime, storeLoadState } from "../storage";
-
-// Helper function to get generation for a specific PV inverter
-export function getPvInverterGeneration(
-  dataPoint: SimulationDataPoint, 
-  inverterId: string
-): number {
-  const inverterData = dataPoint.pvInverterGenerations.find(
-    gen => gen.inverterId === inverterId
-  );
-  return inverterData ? inverterData.generation : 0;
-}
-
-// Helper function to get all PV inverter generations
-export function getAllPvInverterGenerations(
-  dataPoint: SimulationDataPoint
-): PvInverterGeneration[] {
-  return dataPoint.pvInverterGenerations;
-}
-
-// Helper function to get total PV generation from inverters with price below threshold
-export function getAffordablePvGeneration(
-  dataPoint: SimulationDataPoint,
-  config: SiteEnergyConfig,
-  priceThreshold: number // €/MWh
-): number {
-  let totalGeneration = 0;
-  
-  for (const inverter of config.pvInverters) {
-    // Inverters without pricePerMWh are considered affordable
-    if (inverter.pricePerMWh === undefined || inverter.pricePerMWh < priceThreshold) {
-      const generation = getPvInverterGeneration(dataPoint, inverter.id);
-      totalGeneration += generation;
-    }
-  }
-  
-  return totalGeneration;
-}
-
-// Helper function to get total PV generation from inverters with price above threshold (expensive)
-export function getExpensivePvGeneration(
-  dataPoint: SimulationDataPoint,
-  config: SiteEnergyConfig,
-  priceThreshold: number // €/MWh
-): number {
-  let totalGeneration = 0;
-  
-  for (const inverter of config.pvInverters) {
-    // Only include inverters with price higher than threshold
-    if (inverter.pricePerMWh !== undefined && inverter.pricePerMWh >= priceThreshold) {
-      const generation = getPvInverterGeneration(dataPoint, inverter.id);
-      totalGeneration += generation;
-    }
-  }
-  
-  return totalGeneration;
-}
+import { 
+  getPvInverterGeneration, 
+  getAffordablePvGeneration, 
+  getExpensivePvGeneration
+} from "../optimization-algorithm";
 
 /**
  * Cost optimization control cycle algorithm
@@ -69,7 +18,7 @@ export function costOptimizationControlCycle(
 ): ControlDecision {
   let decision: ControlDecision = {
     batteryPower: 0,
-    curtailment: 0,
+    pvActivePowerSetpoint: 0,
     loadState: false,
     loadDecisionReason: '',
     batteryDecisionReason: '',
@@ -108,10 +57,10 @@ export function costOptimizationControlCycle(
   // Store the load state for future reference
   storeLoadState(currentSlot, decision.loadState);
 
-  // PV curtailment logic
-  const curtailmentResult = calculatePvCurtailment(current, decision, config);
-  decision.curtailment = curtailmentResult.curtailment;
-  decision.curtailmentDecisionReason = curtailmentResult.reason;
+  // PV setpoint logic
+  const setpointResult = calculatePvSetpoint(current, decision, config);
+  decision.pvActivePowerSetpoint = setpointResult.setpoint;
+  decision.curtailmentDecisionReason = setpointResult.reason;
 
   return decision;
 }
@@ -916,23 +865,41 @@ function determineLoadState(
   return { state: load, reason };
 }
 
-function calculatePvCurtailment(
+function calculatePvSetpoint(
   current: SimulationDataPoint,
   decision: ControlDecision,
   config: SiteEnergyConfig
-): { curtailment: number; reason: string } {
+): { setpoint: number; reason: string } {
+  // Calculate total capacity of non-controllable inverters
+  const nonControllableCapacity = config.pvInverters
+    .filter(inverter => !inverter.controllable)
+    .reduce((sum, inverter) => sum + inverter.capacity, 0);
+
+  // Calculate total capacity of controllable inverters
+  const controllableCapacity = config.pvInverters
+    .filter(inverter => inverter.controllable)
+    .reduce((sum, inverter) => sum + inverter.capacity, 0);
+
+  // Calculate current PV generation from individual inverters
+  const currentPvGeneration = current.pvInverterGenerations.reduce((sum, gen) => sum + gen.generation, 0);
+
   if (current.consumptionPrice < 0) {
-    return { curtailment: current.pvGeneration, reason: 'negative consumption price' };
+    // At negative consumption price, setpoint is only non-controllable capacity
+    return { setpoint: nonControllableCapacity, reason: 'negative consumption price - PV setpoint limited to non-controllable capacity' };
   }
 
   if (current.injectionPrice < 0) {
     let effectiveConsumption = current.consumption + decision.batteryPower;
     if (decision.loadState) {
-      effectiveConsumption += config.loadNominalPower;
+      effectiveConsumption += config.loadNominalPower; //TODO: hier marge aan toevoegen omdat we niet exact weten hoeveel de load gaat verbruiken
     }
-    const excess = Math.max(0, current.pvGeneration - effectiveConsumption);
-    return { curtailment: excess, reason: 'negative injection price' };
+    const excess = Math.max(0, currentPvGeneration - effectiveConsumption);
+    
+    // Setpoint is non-controllable capacity plus any controllable capacity needed to avoid excess
+    const controllableNeeded = Math.min(excess, controllableCapacity);
+    const setpoint = nonControllableCapacity + controllableNeeded;
+    return { setpoint, reason: 'negative injection price - PV setpoint limited to avoid excess' };
   }
 
-  return { curtailment: 0, reason: 'no curtailment needed' };
+  return { setpoint: nonControllableCapacity + controllableCapacity, reason: 'no setpoint limitation needed' };
 } 

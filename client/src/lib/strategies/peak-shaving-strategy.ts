@@ -13,7 +13,7 @@ export function peakShavingControlCycle(
 ): ControlDecision {
   let decision: ControlDecision = {
     batteryPower: 0,
-    curtailment: 0,
+    pvActivePowerSetpoint: 0,
     loadState: false,
     loadDecisionReason: '',
     batteryDecisionReason: '',
@@ -37,10 +37,10 @@ export function peakShavingControlCycle(
   // Store the load state for future reference
   storeLoadState(currentSlot, decision.loadState);
 
-  // PV curtailment logic (simplified for peak shaving)
-  const curtailmentResult = calculatePvCurtailment(current, decision, config);
-  decision.curtailment = curtailmentResult.curtailment;
-  decision.curtailmentDecisionReason = curtailmentResult.reason;
+  // PV setpoint logic (simplified for peak shaving)
+  const setpointResult = calculatePvSetpoint(current, decision, config);
+  decision.pvActivePowerSetpoint = setpointResult.setpoint;
+  decision.curtailmentDecisionReason = setpointResult.reason;
 
   return decision;
 }
@@ -168,15 +168,29 @@ function determineLoadState(
 }
 
 /**
- * Simplified PV curtailment for peak shaving
+ * Simplified PV setpoint for peak shaving
  */
-function calculatePvCurtailment(
+function calculatePvSetpoint(
   current: SimulationDataPoint,
   decision: ControlDecision,
   config: SiteEnergyConfig
-): { curtailment: number; reason: string } {
+): { setpoint: number; reason: string } {
+  // Calculate total capacity of non-controllable inverters
+  const nonControllableCapacity = config.pvInverters
+    .filter(inverter => !inverter.controllable)
+    .reduce((sum, inverter) => sum + inverter.capacity, 0);
+
+  // Calculate total capacity of controllable inverters
+  const controllableCapacity = config.pvInverters
+    .filter(inverter => inverter.controllable)
+    .reduce((sum, inverter) => sum + inverter.capacity, 0);
+
+  // Calculate current PV generation from individual inverters
+  const currentPvGeneration = current.pvInverterGenerations.reduce((sum, gen) => sum + gen.generation, 0);
+
   if (current.consumptionPrice < 0) {
-    return { curtailment: current.pvGeneration, reason: 'negative consumption price (peak shaving)' };
+    // At negative consumption price, setpoint is only non-controllable capacity
+    return { setpoint: nonControllableCapacity, reason: 'negative consumption price - PV setpoint limited to non-controllable capacity (peak shaving)' };
   }
 
   if (current.injectionPrice < 0) {
@@ -184,9 +198,13 @@ function calculatePvCurtailment(
     if (decision.loadState) {
       effectiveConsumption += config.loadNominalPower;
     }
-    const excess = Math.max(0, current.pvGeneration - effectiveConsumption);
-    return { curtailment: excess, reason: 'negative injection price (peak shaving)' };
+    const excess = Math.max(0, currentPvGeneration - effectiveConsumption);
+    
+    // Setpoint is non-controllable capacity plus any controllable capacity needed to avoid excess
+    const controllableNeeded = Math.min(excess, controllableCapacity);
+    const setpoint = nonControllableCapacity + controllableNeeded;
+    return { setpoint, reason: 'negative injection price - PV setpoint limited to avoid excess (peak shaving)' };
   }
 
-  return { curtailment: 0, reason: 'no curtailment needed (peak shaving)' };
+  return { setpoint: nonControllableCapacity + controllableCapacity, reason: 'no setpoint limitation needed (peak shaving)' };
 } 

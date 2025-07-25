@@ -38,6 +38,7 @@ export function ConfigurationPanel({ config, onConfigChange, scenario, onScenari
     const newInverter: PvInverter = {
       id: `pv-${Date.now()}`,
       capacity: 10,
+      controllable: true,
     };
     onConfigChange({
       ...config,
@@ -52,7 +53,7 @@ export function ConfigurationPanel({ config, onConfigChange, scenario, onScenari
     });
   };
 
-  const updatePvInverter = (id: string, field: keyof PvInverter, value: number | string | null) => {
+  const updatePvInverter = (id: string, field: keyof PvInverter, value: number | string | boolean | null) => {
     onConfigChange({
       ...config,
       pvInverters: config.pvInverters.map(inverter => 
@@ -359,6 +360,31 @@ export function ConfigurationPanel({ config, onConfigChange, scenario, onScenari
                       onChange={(e) => updatePvInverter(inverter.id, 'pricePerMWh', e.target.value ? parseFloat(e.target.value) : null)}
                       className="mt-1 bg-gray-700 border-gray-600 text-gray-50 focus:ring-2 focus:ring-blue-500"
                     />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <Label htmlFor={`controllable-${inverter.id}`} className="text-sm font-medium text-gray-300">
+                        Controllable
+                      </Label>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="w-4 h-4 text-gray-400" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Whether this inverter can be controlled/curtailed by the optimization algorithm</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <select
+                      id={`controllable-${inverter.id}`}
+                      className="mt-1 bg-gray-700 border-gray-600 text-gray-50 w-full"
+                      value={inverter.controllable ? "true" : "false"}
+                      onChange={(e) => updatePvInverter(inverter.id, 'controllable', e.target.value === "true")}
+                    >
+                      <option value="true">Controllable</option>
+                      <option value="false">Non-controllable</option>
+                    </select>
                   </div>
                 </div>
               ))}

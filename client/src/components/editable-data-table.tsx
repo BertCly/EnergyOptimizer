@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SimulationDataPoint } from "@shared/schema";
+import { SimulationDataPoint, SiteEnergyConfig } from "@shared/schema";
+import { getPvInverterGeneration, distributePvSetpoint } from "@/lib/optimization-algorithm";
 import { useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -10,13 +11,15 @@ interface EditableDataTableProps {
   onDataChange: (data: SimulationDataPoint[]) => void;
   onExportData: () => void;
   isSimulationRunning: boolean;
+  config: SiteEnergyConfig;
 }
 
 export function EditableDataTable({ 
   data, 
   onDataChange, 
   onExportData, 
-  isSimulationRunning 
+  isSimulationRunning,
+  config
 }: EditableDataTableProps) {
   const [editingCell, setEditingCell] = useState<{ row: number; field: string } | null>(null);
 
@@ -144,12 +147,12 @@ export function EditableDataTable({
                 <th className="pb-3 text-gray-300 font-medium">Consumptie Cost (€/MWh)</th>
                 <th className="pb-3 text-gray-300 font-medium">Injectie Cost (€/MWh)</th>
                 <th className="pb-3 text-gray-300 font-medium">Consumption (kW)</th>
-                <th className="pb-3 text-gray-300 font-medium">PV Generation (kW)</th>
+                <th className="pb-3 text-gray-300 font-medium">Raw PV Generation (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">Trading Signal</th>
                 <th className="pb-3 text-gray-300 font-medium">Battery Power (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">SoC (%)</th>
                 <th className="pb-3 text-gray-300 font-medium">Extra load</th>
-                <th className="pb-3 text-gray-300 font-medium">Curtailment (kW)</th>
+                <th className="pb-3 text-gray-300 font-medium">PV Generation (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">Net Power (kW)</th>
                 <th className="pb-3 text-gray-300 font-medium">Cost (€)</th>
               </tr>
@@ -204,6 +207,8 @@ export function EditableDataTable({
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>
+                        <div>Raw PV Generation: {row.pvGeneration?.toFixed(1) || '0.0'} kW</div>
+                        <div>Actual PV Generation: {row.actualPvGeneration?.toFixed(1) || '0.0'} kW</div>
                         <div>PV Forecast: {row.pvForecast?.toFixed(1) || '0.0'} kW</div>
                       </TooltipContent>
                     </Tooltip>
@@ -253,12 +258,45 @@ export function EditableDataTable({
                   <td className="py-2 text-pink-400">
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className="cursor-help">{row.curtailment?.toFixed(1) || '0.0'}</span>
+                        <span className="cursor-help">
+                          {row.actualPvGeneration?.toFixed(1) || '0.0'}
+                          {row.pvActivePowerSetpoint && row.pvActivePowerSetpoint < row.pvGeneration && (
+                            <span className="text-xs text-orange-400 ml-1">- curtailed</span>
+                          )}
+                        </span>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <div dangerouslySetInnerHTML={{ 
-                          __html: row.curtailmentDecisionReason || 'No curtailment reason available'
-                        }} />
+                      <div className="mb-2 pb-2 border-b border-gray-600">
+                          <div dangerouslySetInnerHTML={{ 
+                            __html: row.curtailmentDecisionReason || 'No PV setpoint reason available'
+                          }} />
+                        </div>
+                        <div>Actual PV Generation: {row.actualPvGeneration?.toFixed(1) || '0.0'} kW</div>
+                        <div>PV Generation without curtailment: {row.pvGeneration?.toFixed(1) || '0.0'} kW</div>
+                        <div>PV Power Setpoint: {row.pvActivePowerSetpoint?.toFixed(1) || '0.0'} kW</div>
+                        <div className="mt-2 pt-2 border-t border-gray-600">
+                          <div className="text-xs font-medium mb-1">Per Inverter:</div>
+                          {config.pvInverters.map(inverter => {
+                            const generation = getPvInverterGeneration(row, inverter.id);
+                            const { inverterSetpoints } = distributePvSetpoint(row, config, row.pvActivePowerSetpoint || 0);
+                            const setpoint = inverterSetpoints.get(inverter.id) || 0;
+                            const actualGeneration = Math.min(setpoint, generation);
+                            return (
+                              <div key={inverter.id} className="text-xs text-gray-300">
+                                <span className={inverter.controllable ? 'text-blue-400' : 'text-gray-400'}>
+                                  {inverter.controllable ? '●' : '○'} {inverter.id}:
+                                </span>
+                                <span className="ml-1">
+                                  {actualGeneration.toFixed(1)}/{setpoint.toFixed(1)}/{inverter.capacity.toFixed(1)} kW
+                                </span>
+                                <span className="text-xs text-gray-500 ml-1">
+                                  (actual/setpoint/capacity)
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        
                       </TooltipContent>
                     </Tooltip>
                   </td>

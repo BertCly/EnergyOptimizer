@@ -119,7 +119,7 @@ export function ChartsSection({ data, currentSlot, config }: ChartsSectionProps)
       const labels = visibleData.map(d => d.timeString);
       const prices = visibleData.map(d => d.consumptionPrice);
       const consumption = visibleData.map(d => d.consumption);
-      const pvGeneration = visibleData.map(d => d.pvGeneration - d.curtailment);
+      const pvGeneration = visibleData.map(d => d.actualPvGeneration);
       const pvForecast = visibleData.map(d => d.pvForecast || 0);
       const batteryPower = visibleData.map(d => d.batteryPower);
       const soc = visibleData.map(d => d.soc);

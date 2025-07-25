@@ -11,6 +11,7 @@ import { SIMULATION_SLOTS, TOTAL_SLOTS } from "@/lib/fixed-data";
 import { generateSimulationData, SimulationScenario } from "@/lib/data-generator";
 import { controlCycle } from "@/lib/optimization-algorithm";
 import { initializeSimulation } from "@/lib/storage";
+import { calculateActualPvGeneration } from "@/lib/optimization-algorithm";
 
 export function EnergyFlowSimulator() {
   const [config, setConfig] = useState<SiteEnergyConfig>(siteEnergyConfigSchema.parse({}));
@@ -82,7 +83,7 @@ export function EnergyFlowSimulator() {
       
       // Update battery decision
       current.batteryPower = decision.batteryPower;
-      current.curtailment = decision.curtailment;
+      current.pvActivePowerSetpoint = decision.pvActivePowerSetpoint;
       current.loadState = decision.loadState;
       current.loadDecisionReason = decision.loadDecisionReason;
       current.batteryDecisionReason = decision.batteryDecisionReason;
@@ -99,8 +100,12 @@ export function EnergyFlowSimulator() {
         }
       }
       
+      // Calculate actual PV generation after setpoint limitation
+      const actualPvGeneration = calculateActualPvGeneration(current, config, current.pvActivePowerSetpoint);
+      current.actualPvGeneration = actualPvGeneration;
+      
       // Calculate net power (positive = from grid, negative = to grid)
-      current.netPower = effectiveConsumption + current.batteryPower - current.pvGeneration + current.curtailment;
+      current.netPower = effectiveConsumption + current.batteryPower - actualPvGeneration;
       
       // Calculate cost for this interval (15 minutes = 0.25 hours)
       // Prices are in €/MWh, so divide by 1000 to get €/kWh for calculation
@@ -151,11 +156,11 @@ export function EnergyFlowSimulator() {
     }
     
     const visibleData = simulationData.slice(0, currentSlot + 1);
-    const csvData = visibleData.map(d =>
-      `${d.timeString},${d.consumptionPrice.toFixed(0)},${d.injectionPrice.toFixed(0)},${d.consumption.toFixed(1)},${d.pvGeneration.toFixed(1)},${d.pvForecast?.toFixed(1) || '0.0'},${d.batteryPower.toFixed(1)},${d.soc.toFixed(1)},${d.loadState ? 'ON' : 'OFF'},${d.curtailment?.toFixed(1) || '0.0'},${d.tradingSignal},${d.tradingSignalRequestedPower?.toFixed(1) || '0.0'},${d.netPower.toFixed(1)},${d.cost.toFixed(3)}`
+    const csvData = visibleData.map(d => 
+      `${d.timeString},${d.consumptionPrice.toFixed(0)},${d.injectionPrice.toFixed(0)},${d.consumption.toFixed(1)},${d.pvGeneration.toFixed(1)},${d.pvForecast?.toFixed(1) || '0.0'},${d.batteryPower.toFixed(1)},${d.soc.toFixed(1)},${d.loadState ? 'ON' : 'OFF'},${d.pvActivePowerSetpoint?.toFixed(1) || '0.0'},${d.actualPvGeneration?.toFixed(1) || '0.0'},${d.tradingSignal},${d.tradingSignalRequestedPower?.toFixed(1) || '0.0'},${d.netPower.toFixed(1)},${d.cost.toFixed(3)}`
     ).join('\n');
 
-    const csv = 'Time,Consumption Price (€/MWh),Injection Price (€/MWh),Consumption (kW),PV Generation (kW),PV Forecast (kW),Battery Power (kW),SoC (%),Controllable Load,PV Curtailment (kW),Trading Signal,Requested Power (kW),Net Power (kW),Cost (€)\n' + csvData;
+    const csv = 'Time,Consumption Price (€/MWh),Injection Price (€/MWh),Consumption (kW),PV Generation (kW),PV Forecast (kW),Battery Power (kW),SoC (%),Controllable Load,PV Active Power Setpoint (kW),Actual PV Generation (kW),Trading Signal,Requested Power (kW),Net Power (kW),Cost (€)\n' + csvData;
     
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -219,7 +224,7 @@ export function EnergyFlowSimulator() {
                     <div className="font-medium">Calculation without optimization:</div>
                     <div>• Per quarter: (Consumption - PV) × Price × 0.25h</div>
                     <div>• Plus controllable load cost (without optimization)</div>
-                    <div>• No battery optimization or curtailment</div>
+                    <div>• No battery optimization or PV setpoint limitation</div>
                   </div>
                 </div>
               </TooltipContent>
@@ -252,6 +257,7 @@ export function EnergyFlowSimulator() {
             onDataChange={handleDataChange}
             onExportData={handleExportData}
             isSimulationRunning={false}
+            config={config}
           />
         </div>
       </div>

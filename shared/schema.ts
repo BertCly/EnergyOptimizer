@@ -11,6 +11,7 @@ export const pvInverterSchema = z.object({
   id: z.string(),
   capacity: z.number().min(0.1).max(1000).default(10), // kW
   pricePerMWh: z.number().min(0).optional(), // Optional price per MWh
+  controllable: z.boolean().default(true), // Whether this inverter can be controlled/curtailed
 });
 
 // Individual PV Inverter Generation Data
@@ -52,6 +53,7 @@ export const siteEnergyConfigSchema = z.object({
     {
       id: "default-pv-inverter",
       capacity: 50,
+      controllable: true,
     }
   ]),
 });
@@ -66,11 +68,12 @@ export const simulationDataPointSchema = z.object({
   pvGeneration: z.number(),
   pvForecast: z.number(),
   pvInverterGenerations: z.array(pvInverterGenerationSchema).default([]), // Individual inverter generations
+  actualPvGeneration: z.number().default(0), // Actual PV generation after setpoint limitation
   batteryPower: z.number(),
   soc: z.number(),
   netPower: z.number(),
   cost: z.number(),
-  curtailment: z.number().default(0),
+  pvActivePowerSetpoint: z.number().default(0), // Total power limit for PV inverters (renamed from curtailment)
   loadState: z.boolean().default(false),
   loadDecisionReason: z.string().default(''),
   batteryDecisionReason: z.string().default(''),
@@ -82,7 +85,7 @@ export const simulationDataPointSchema = z.object({
 // Control Decision Schema
 export const controlDecisionSchema = z.object({
   batteryPower: z.number(),
-  curtailment: z.number().default(0),
+  pvActivePowerSetpoint: z.number().default(0), // Total power limit for PV inverters (renamed from curtailment)
   loadState: z.boolean().default(false),
   loadDecisionReason: z.string().default(''),
   batteryDecisionReason: z.string().default(''),

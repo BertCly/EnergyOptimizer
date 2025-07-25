@@ -332,11 +332,12 @@ export function generateSimulationData(config: SiteEnergyConfig, scenario: Simul
       pvGeneration: totalPvGeneration,
       pvForecast: totalPvForecast,
       pvInverterGenerations,
+      actualPvGeneration: totalPvGeneration, // Initially same as raw generation
       batteryPower: 0,
       soc: config.initialSoc,
       netPower: 0,
       cost: 0,
-      curtailment: 0,
+      pvActivePowerSetpoint: 0,
       loadState: false,
       loadDecisionReason: '',
       batteryDecisionReason: '',
