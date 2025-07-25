@@ -260,21 +260,21 @@ export function EditableDataTable({
                       <TooltipTrigger asChild>
                         <span className="cursor-help">
                           {row.actualPvGeneration?.toFixed(1) || '0.0'}
-                          {row.pvActivePowerSetpoint && row.pvActivePowerSetpoint < row.pvGeneration && (
+                          {(row.pvActivePowerSetpoint || 0) < config.pvInverters.reduce((sum, inverter) => sum + inverter.capacity, 0) && (
                             <span className="text-xs text-orange-400 ml-1">- curtailed</span>
                           )}
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>
                       <div className="mb-2 pb-2 border-b border-gray-600">
-                          <div dangerouslySetInnerHTML={{ 
+                        <div dangerouslySetInnerHTML={{ 
                             __html: row.curtailmentDecisionReason || 'No PV setpoint reason available'
                           }} />
                         </div>
                         <div>Actual PV Generation: {row.actualPvGeneration?.toFixed(1) || '0.0'} kW</div>
                         <div>PV Generation without curtailment: {row.pvGeneration?.toFixed(1) || '0.0'} kW</div>
                         <div>PV Power Setpoint: {row.pvActivePowerSetpoint?.toFixed(1) || '0.0'} kW</div>
-                        <div className="mt-2 pt-2 border-t border-gray-600">
+                        <div className="mb-2  mt-2 pt-2 border-t border-gray-600">
                           <div className="text-xs font-medium mb-1">Per Inverter:</div>
                           {config.pvInverters.map(inverter => {
                             const generation = getPvInverterGeneration(row, inverter.id);
